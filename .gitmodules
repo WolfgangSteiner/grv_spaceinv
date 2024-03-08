@@ -1,0 +1,3 @@
+[submodule "lib/grv"]
+	path = lib/grv
+	url = https://github.com/WolfgangSteiner/grv.git
