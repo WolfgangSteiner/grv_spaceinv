@@ -12,8 +12,6 @@ char* player_sprite_data =
 "77   77 "
 "        ";
 
-typedef s32 i32;
-
 typedef struct {
     i32 w;
     i32 h;
@@ -43,10 +41,10 @@ void grv_framebuffer_put_sprite(grv_frame_buffer_t* fb, grv_sprite_t* spr, i32 x
     i32 y_end = y + spr->h - 1;
     if (x_start >= fb->width || x_end < 0 || y_start >= fb->height || y_end < 0) return;
 
-    x_start = grv_clamp_s32(x_start, 0, fb->width - 1);
-    x_end = grv_clamp_s32(x_end, 0, fb->width - 1);
-    y_start = grv_clamp_s32(y_start, 0, fb->height - 1);
-    y_end = grv_clamp_s32(y_end, 0, fb->height - 1);
+    x_start = grv_clamp_i32(x_start, 0, fb->width - 1);
+    x_end = grv_clamp_i32(x_end, 0, fb->width - 1);
+    y_start = grv_clamp_i32(y_start, 0, fb->height - 1);
+    y_end = grv_clamp_i32(y_end, 0, fb->height - 1);
 
     u8* src_row_ptr = spr->pixel_data + (y_start - y) * spr->row_skip + (x_start - x);
     u8* dst_row_ptr = fb->indexed_data + y_start * fb->width + x_start;
