@@ -50,7 +50,7 @@ bool grvgm_is_button_down(grvgm_button_code_t button_code) {
     }
 }
 
-void grvgm_poll_keyboard() {
+void grvgm_poll_keyboard(void) {
     int num_keys = 0;
     const u8* keyboard_state = SDL_GetKeyboardState(&num_keys);
     if (_grvgm_previous_keyboard_state == NULL) {
@@ -132,17 +132,27 @@ void grvgm_draw_button_state(grv_framebuffer_t* fb) {
 //==============================================================================
 // drawing api
 //==============================================================================
-void grvgm_cls(u8 color) {
+void grvgm_clear_screen(u8 color) {
     grv_frame_buffer_fill_u8(_grvgm_state.framebuffer, color);
 } 
 
-void grvgm_spr(i32 number, f32 x, f32 y) {
-    grv_img8_t img = grv_spritesheet8_get_img8_by_number(&_grvgm_state.spritesheet, number);
-    grv_framebuffer_blit_img8(&_grvgm_state.window->frame_buffer, &img, grv_round_f32(x), grv_round_f32(y));   
+void grvgm_draw_sprite(grvgm_sprite_t sprite) {
+    grv_spritesheet8_t* spritesheet = sprite.spritesheet ? sprite.spritesheet : &_grvgm_state.spritesheet;
+    grv_img8_t img = grv_spritesheet8_get_img8_by_index(spritesheet, sprite.index);
+    grv_framebuffer_blit_img8(
+        &_grvgm_state.window->frame_buffer,
+        &img,
+        grv_fixed32_round(sprite.pos.x),
+        grv_fixed32_round(sprite.pos.y)
+    );   
 }
 
-void grvgm_pset(f32 x, f32 y, u8 color) {
-    grv_frame_buffer_set_pixel_u8(&_grvgm_state.window->frame_buffer, vec2i_make(grv_round_f32(x), grv_round_f32(y)), color);
+void grvgm_draw_pixel(grv_vec2_fixed32_t pos,  u8 color) {
+    grv_frame_buffer_set_pixel_u8(
+        &_grvgm_state.window->frame_buffer,
+        vec2i_make(grv_fixed32_round(pos.x), grv_fixed32_round(pos.y)),
+        color
+    );
 }
 
 //==============================================================================

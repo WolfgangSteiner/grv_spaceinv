@@ -41,10 +41,17 @@ bool grv_spritesheet8_load_from_bmp(grv_str_t filename, grv_spritesheet8_t* spri
     }
 }
 
-grv_img8_t grv_spritesheet8_get_img8(grv_spritesheet8_t* sprite_sheet, i32 row_idx, i32 col_idx) {
+grv_img8_t grv_spritesheet8_get_img8(
+    grv_spritesheet8_t* sprite_sheet,
+    i32 row_idx,
+    i32 col_idx) {
+    grv_assert(col_idx >= 0);
+    grv_assert(row_idx >= 0);
     grv_assert(col_idx < sprite_sheet->num_cols);
     grv_assert(row_idx < sprite_sheet->num_rows);
-    u8* pixel_ptr = sprite_sheet->img.pixel_data + sprite_sheet->img.row_skip * sprite_sheet->spr_h * row_idx + sprite_sheet->spr_w * col_idx;
+    size_t row_offset = sprite_sheet->img.row_skip * sprite_sheet->spr_h * row_idx;
+    size_t col_offset = sprite_sheet->spr_w * col_idx;
+    u8* pixel_ptr = sprite_sheet->img.pixel_data + row_offset + col_offset;
     return (grv_img8_t){
         .w=sprite_sheet->spr_w,
         .h=sprite_sheet->spr_h,
@@ -54,10 +61,10 @@ grv_img8_t grv_spritesheet8_get_img8(grv_spritesheet8_t* sprite_sheet, i32 row_i
     };
 }
 
-grv_img8_t grv_spritesheet8_get_img8_by_number(grv_spritesheet8_t* sprite_sheet, i32 number) {
-    grv_assert(number < sprite_sheet->num_rows * sprite_sheet->num_cols); 
-    i32 row_idx = number / sprite_sheet->num_cols;
-    i32 col_idx = number % sprite_sheet->num_cols;
+grv_img8_t grv_spritesheet8_get_img8_by_index(grv_spritesheet8_t* sprite_sheet, i32 index) {
+    grv_assert(index < sprite_sheet->num_rows * sprite_sheet->num_cols); 
+    i32 row_idx = index / sprite_sheet->num_cols;
+    i32 col_idx = index % sprite_sheet->num_cols;
     return grv_spritesheet8_get_img8(sprite_sheet, row_idx, col_idx);
 }
 

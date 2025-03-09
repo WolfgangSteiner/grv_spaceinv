@@ -2,6 +2,7 @@
 #define GRVGM_H
 
 #include "grv_gfx/grv_window.h"
+#include "grv/grv_vec2_fixed32.h"
 
 typedef enum {
     GRVGM_BUTTON_CODE_LEFT  = 0,
@@ -17,12 +18,20 @@ typedef enum {
 int grvgm_main(int argc, char** argv);
 bool grvgm_is_button_down(grvgm_button_code_t button_code);
 
-extern void on_init();
+extern void on_init(void);
 extern void on_update(f32);
-extern void on_draw();
+extern void on_draw(void);
 
-void grvgm_cls(u8 color);
-void grvgm_spr(i32 number, f32 x, f32 y);
-void grvgm_pset(f32 x, f32 y, u8 color);
+typedef struct {
+    grv_vec2_fixed32_t pos;
+    i32 index;
+    bool flip_x, flip_y;
+    grv_spritesheet8_t* spritesheet;
+} grvgm_sprite_t;
+
+
+void grvgm_clear_screen(u8 color);
+void grvgm_draw_sprite(grvgm_sprite_t sprite);
+void grvgm_draw_pixel(grv_vec2_fixed32_t pos, u8 color);
 
 #endif
