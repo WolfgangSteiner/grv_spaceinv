@@ -130,7 +130,7 @@ void grvgm_draw_button_state(grv_framebuffer_t* fb) {
 }
     
 //==============================================================================
-// drawing api
+// api
 //==============================================================================
 void grvgm_clear_screen(u8 color) {
     grv_frame_buffer_fill_u8(_grvgm_state.framebuffer, color);
@@ -153,6 +153,17 @@ void grvgm_draw_pixel(grv_vec2_fixed32_t pos,  u8 color) {
         vec2i_make(grv_fixed32_round(pos.x), grv_fixed32_round(pos.y)),
         color
     );
+}
+
+grv_vec2_fixed32_t grvgm_screen_size(void) {
+    i32 w = _grvgm_state.window->frame_buffer.width;
+    i32 h = _grvgm_state.window->frame_buffer.height;
+    return grv_vec2_fixed32_from_i32(w, h);
+}
+
+grv_fixed32_t grvgm_time(void) {
+    f32 seconds = _grvgm_state.game_time / 1000.0f;
+    return grv_fixed32_from_f32(seconds);
 }
 
 //==============================================================================

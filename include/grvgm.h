@@ -33,5 +33,7 @@ typedef struct {
 void grvgm_clear_screen(u8 color);
 void grvgm_draw_sprite(grvgm_sprite_t sprite);
 void grvgm_draw_pixel(grv_vec2_fixed32_t pos, u8 color);
+grv_vec2_fixed32_t grvgm_screen_size(void);
+grv_fixed32_t grvgm_time(void);
 
 #endif

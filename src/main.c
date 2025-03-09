@@ -58,6 +58,16 @@ void entity_draw(entity_t* entity) {
     grvgm_draw_pixel(entity->sprite.pos, 8);
 }
 
+
+//==============================================================================
+// shot
+//==============================================================================
+typedef struct {
+    grv_vec2_fixed32_t pos;
+    grv_vec2_fixed32_t vel;
+} shot_t;
+
+
 //==============================================================================
 // scene
 //==============================================================================
@@ -67,12 +77,19 @@ typedef struct {
         size_t size;
         size_t capacity;
     } entity_arr;
+    struct {
+        shot_t* arr;
+        size_t size;
+        size_t capacity;
+    } shot_arr;
 } grvgm_scene_t;
 
 #define GRV_ALLOC_OBJECT_ZERO(TYPE) grv_alloc_zeros(sizeof(TYPE))
 
 grvgm_scene_t* grvgm_scene_new(void) {
     grvgm_scene_t* s = GRV_ALLOC_OBJECT_ZERO(grvgm_scene_t);
+    s->shot_arr.capacity = 128;
+    s->shot_arr.arr = grv_alloc_zeros(sizeof(shot_t) * s->shot_arr.capacity);
     return s;
 }
 
@@ -80,12 +97,30 @@ void grvgm_scene_add_entity(grvgm_scene_t* scene, entity_t* entity) {
     grv_arr_push(&scene->entity_arr, entity);
 }
 
+void scene_update_shots(grvgm_scene_t* scene, grv_fixed32_t delta_t) {
+    grv_vec2_fixed32_t size = grvgm_screen_size();
+    i32 i = 0;
+    while (i < scene->shot_arr.size) {
+        shot_t* shot = scene->shot_arr.arr + i;
+        grv_vec2_fixed32_t pos = grv_vec2_fixed32_smula(shot->vel, delta_t, shot->pos);
+        bool shot_alive = (pos.y.val >= 0 && pos.y.val < size.y.val);
+        if (shot_alive) {
+            shot->pos = pos;
+            i++;
+        } else {
+            scene->shot_arr.size--;
+            *shot = scene->shot_arr.arr[scene->shot_arr.size];
+        }
+    }
+}
+
 void grvgm_scene_update(grvgm_scene_t* scene, f32 dt) {
     grv_fixed32_t delta_t = grv_fixed32_from_f32(dt);
     for (size_t i = 0; i < scene->entity_arr.size; ++i) {
         entity_t* e = scene->entity_arr.arr[i];
         if (e->update_func) e->update_func(e, delta_t);
-    } 
+    }
+    scene_update_shots(scene, delta_t);
 }
 
 void grvgm_scene_draw(grvgm_scene_t* scene) {
@@ -93,13 +128,22 @@ void grvgm_scene_draw(grvgm_scene_t* scene) {
         entity_t* e = scene->entity_arr.arr[i];
         if (e->draw_func) e->draw_func(e);
     }
+    for (i32 i = 0; i < scene->shot_arr.size; ++i) {
+        grvgm_draw_pixel(scene->shot_arr.arr[i].pos, 8);
+    }
 }
+
+
 
 //==============================================================================
 // spaceinvaders game code
 //==============================================================================
-#include "player.c"
-#include "alien.c"
+typedef struct {
+    entity_t entity;
+    grv_fixed32_t last_shot_timestamp;
+    grv_fixed32_t shot_delay;
+} player_entity_t;
+
 
 typedef struct {
     grvgm_scene_t* scene;
@@ -107,6 +151,9 @@ typedef struct {
 } spaceinv_state_t;
 
 static spaceinv_state_t state = {0};
+
+#include "player.c"
+#include "alien.c"
 
 void on_init(void) {
     state.scene = grvgm_scene_new();
