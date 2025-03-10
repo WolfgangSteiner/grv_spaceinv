@@ -1,13 +1,13 @@
 #include "grvgm.h"
 #include "grv/grv_log.h"
 #include "grv_gfx/grv_bitmap_font.h"
-#include "grv_gfx/grv_frame_buffer.h"
+#include "grv_gfx/grv_framebuffer.h"
 #include "grv_gfx/grv_img8.h"
 #include "grv_gfx/grv_spritesheet8.h"
 #include <SDL2/SDL.h>
 typedef struct {
     grv_window_t* window;
-    grv_frame_buffer_t* framebuffer;
+    grv_framebuffer_t* framebuffer;
     grv_bitmap_font_t* font;
     grv_spritesheet8_t spritesheet;
     u64 timestamp;
@@ -101,7 +101,6 @@ char* _grvgm_button_sprite_data =
 "03333300""03333300""03333300""03333300"
 "00000000""00000000""00000000""00000000";
 
-typedef grv_frame_buffer_t grv_framebuffer_t;
 
 void grvgm_draw_button_state(grv_framebuffer_t* fb) {
     static grv_spritesheet8_t sprite_sheet = {0};
@@ -121,7 +120,7 @@ void grvgm_draw_button_state(grv_framebuffer_t* fb) {
     i32 x = 0;
     i32 y = 0;
     i32 w = 8;
-    grv_frame_buffer_fill_rect_u8(fb, (recti_t){x,y,4*w,w}, 0);
+    grv_framebuffer_fill_rect_u8(fb, (recti_t){x,y,4*w,w}, 0);
     grv_framebuffer_blit_img8(fb, &spr_left, x, y);
     grv_framebuffer_blit_img8(fb, &spr_right, x + w, y);
     grv_framebuffer_blit_img8(fb, &spr_up, x + 2*w, y);
@@ -132,14 +131,14 @@ void grvgm_draw_button_state(grv_framebuffer_t* fb) {
 // api
 //==============================================================================
 void grvgm_clear_screen(u8 color) {
-    grv_frame_buffer_fill_u8(_grvgm_state.framebuffer, color);
+    grv_framebuffer_fill_u8(_grvgm_state.framebuffer, color);
 } 
 
 void grvgm_draw_sprite(grvgm_sprite_t sprite) {
     grv_spritesheet8_t* spritesheet = sprite.spritesheet ? sprite.spritesheet : &_grvgm_state.spritesheet;
     grv_img8_t img = grv_spritesheet8_get_img8_by_index(spritesheet, sprite.index);
     grv_framebuffer_blit_img8(
-        &_grvgm_state.window->frame_buffer,
+        &_grvgm_state.window->framebuffer,
         &img,
         grv_fixed32_round(sprite.pos.x),
         grv_fixed32_round(sprite.pos.y)
@@ -147,8 +146,8 @@ void grvgm_draw_sprite(grvgm_sprite_t sprite) {
 }
 
 void grvgm_draw_pixel(grv_vec2_fixed32_t pos,  u8 color) {
-    grv_frame_buffer_set_pixel_u8(
-        &_grvgm_state.window->frame_buffer,
+    grv_framebuffer_set_pixel_u8(
+        &_grvgm_state.window->framebuffer,
         vec2i_make(grv_fixed32_round(pos.x), grv_fixed32_round(pos.y)),
         color
     );
@@ -161,14 +160,14 @@ void grvgm_draw_rect(grv_rect_fixed32_t rect, u8 color) {
         .w=grv_fixed32_round(rect.w),
         .h=grv_fixed32_round(rect.h)
     };
-    grv_frame_buffer_draw_rect_u8(&_grvgm_state.window->frame_buffer, r, color);
+    grv_framebuffer_draw_rect_u8(&_grvgm_state.window->framebuffer, r, color);
 }
 
 
 
 grv_vec2_fixed32_t grvgm_screen_size(void) {
-    i32 w = _grvgm_state.window->frame_buffer.width;
-    i32 h = _grvgm_state.window->frame_buffer.height;
+    i32 w = _grvgm_state.window->framebuffer.width;
+    i32 h = _grvgm_state.window->framebuffer.height;
     return grv_vec2_fixed32_from_i32(w, h);
 }
 
@@ -185,8 +184,8 @@ void _grvgm_init(void) {
     _grvgm_state.window = w;
     w->horizontal_align = GRV_WINDOW_HORIZONTAL_ALIGN_RIGHT;
     w->vertical_align = GRV_WINDOW_VERTICAL_ALIGN_TOP;
-    _grvgm_state.framebuffer = &w->frame_buffer;
-    grv_color_palette_init_with_type(&w->frame_buffer.palette, GRV_COLOR_PALETTE_PICO8);
+    _grvgm_state.framebuffer = &w->framebuffer;
+    grv_color_palette_init_with_type(&w->framebuffer.palette, GRV_COLOR_PALETTE_PICO8);
     w->borderless = true;
     grv_window_show(w);
     _grvgm_state.font = grv_get_cozette_font();
@@ -214,7 +213,7 @@ int grvgm_main(int argc, char** argv) {
     bool show_debug_ui = false;
 
     grv_window_t* w = _grvgm_state.window;
-    grv_frame_buffer_t* fb = &w->frame_buffer;
+    grv_framebuffer_t* fb = &w->framebuffer;
 
     bool first_iteration = true;
 

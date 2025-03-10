@@ -2,14 +2,12 @@
 #include "grvgm.h"
 #include "grv/grv_memory.h"
 #include "grv/vec2f.h"
-#include "grv_gfx/grv_frame_buffer.h"
 #include "grv_gfx/grv_spritesheet8.h"
 #include "grv_gfx/grv_img8.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_timer.h>
 #include "grv/grv_rect_fixed32.h"
 
-typedef grv_frame_buffer_t grv_framebuffer_t;
 
 //==============================================================================
 // sprites
