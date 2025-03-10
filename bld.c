@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     grvbld_target_add_src(spaceinv, "src/grv/grv_gfx/grv_spritesheet8.c");
     grvbld_target_add_src(spaceinv, "src/grvgm.c");
     grvbld_target_link_libraries(spaceinv, "grv", "grvgfx", "SDL2", NULL);
-    //spaceinv->run_after_build = true;
+    spaceinv->run_after_build = true;
     grvbld_build_target(config, spaceinv);
 
     return 0;

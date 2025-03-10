@@ -31,7 +31,6 @@ typedef struct {
     grv_spritesheet8_t* spritesheet;
 } grvgm_sprite_t;
 
-
 void grvgm_clear_screen(u8 color);
 void grvgm_draw_sprite(grvgm_sprite_t sprite);
 void grvgm_draw_pixel(grv_vec2_fixed32_t pos, u8 color);
@@ -39,6 +38,10 @@ void grvgm_draw_rect(grv_rect_fixed32_t rect, u8 color);
 void grvgm_draw_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color);
 void grvgm_fill_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color);
 grv_vec2_fixed32_t grvgm_screen_size(void);
+
+// get the current game time
 grv_fixed32_t grvgm_time(void);
 
+// compute time difference between a timestamp and the current time
+grv_fixed32_t grvgm_timediff(grv_fixed32_t timestamp);
 #endif

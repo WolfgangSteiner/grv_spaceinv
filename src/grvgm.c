@@ -193,6 +193,11 @@ grv_fixed32_t grvgm_time(void) {
     return grv_fixed32_from_f32(seconds);
 }
 
+grv_fixed32_t grvgm_timediff(grv_fixed32_t timestamp) {
+    return grv_fixed32_sub(grvgm_time(), timestamp);
+}
+
+
 //==============================================================================
 // main loop
 //==============================================================================

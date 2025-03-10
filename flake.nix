@@ -18,6 +18,7 @@
           pkgs.SDL2_ttf
           pkgs.SDL2_net
           pkgs.gcc
+          pkgs.clang
           pkgs.tinycc
           pkgs.ccache
         ];

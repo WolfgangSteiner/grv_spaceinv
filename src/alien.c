@@ -7,6 +7,8 @@ typedef struct {
 void alien_entity_update(entity_t* entity, grv_fixed32_t delta_t) {
     alien_entity_t* alien = (alien_entity_t*)entity;
     grv_fixed32_t new_x = grv_fixed32_mula(entity->vel.x, delta_t, entity->sprite.pos.x);
+    new_x = entity->sprite.pos.x;
+
     grv_fixed32_t displacement = grv_fixed32_abs(grv_fixed32_sub(new_x, alien->start_pos.x));
 
     if (grv_fixed32_ge(displacement, alien->max_displacement)) {
@@ -46,7 +48,7 @@ alien_entity_t* alien_entity_create(grv_vec2_fixed32_t pos, i32 direction) {
     return alien;
 }
 
-void alien_create_wave(grvgm_scene_t* scene, i32 num_rows, i32 num_cols) {
+void alien_create_wave(scene_t* scene, i32 num_rows, i32 num_cols) {
     i32 space_width = 16;
     i32 space_height = 16;
     //i32 aligrv_gmen_width = 8;
@@ -64,7 +66,7 @@ void alien_create_wave(grvgm_scene_t* scene, i32 num_rows, i32 num_cols) {
             grv_vec2_fixed32_t pos = grv_vec2_fixed32_from_i32(x, y);
             i32 direction = (row % 2) == 0 ? 1 : -1;
             alien_entity_t* alien = alien_entity_create(pos, direction);
-            grvgm_scene_add_entity(scene, (entity_t*)alien);
+            scene_add_entity(scene, (entity_t*)alien);
         }
     }
 }
