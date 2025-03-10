@@ -7,10 +7,9 @@
 #include "grv_gfx/grv_img8.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_timer.h>
+#include "grv/grv_rect_fixed32.h"
 
 typedef grv_frame_buffer_t grv_framebuffer_t;
-
-
 
 //==============================================================================
 // sprites
@@ -42,7 +41,7 @@ typedef struct {
 typedef struct entity_s {
     grvgm_sprite_t sprite;
     grv_vec2_fixed32_t vel;
-    recti_t bounding_box;
+    grv_rect_fixed32_t bounding_box;
     bool is_alive;
     bool is_player;
     void(*update_func)(struct entity_s*, grv_fixed32_t);
@@ -56,8 +55,12 @@ void entity_update(entity_t* entity, grv_fixed32_t delta_t) {
 void entity_draw(entity_t* entity) {
     grvgm_draw_sprite(entity->sprite);
     grvgm_draw_pixel(entity->sprite.pos, 8);
+    //grvgm_draw_rect(entity->bounding_box, 7);
 }
 
+void entity_update_bounding_box(entity_t* e) {
+    e->bounding_box = grv_rect_fixed32_move_to(e->bounding_box, e->sprite.pos);
+}
 
 //==============================================================================
 // shot
@@ -74,13 +77,13 @@ typedef struct {
 typedef struct {
     struct {
         entity_t** arr;
-        size_t size;
-        size_t capacity;
+        i32 size;
+        i32 capacity;
     } entity_arr;
     struct {
         shot_t* arr;
-        size_t size;
-        size_t capacity;
+        i32 size;
+        i32 capacity;
     } shot_arr;
 } grvgm_scene_t;
 
@@ -97,13 +100,29 @@ void grvgm_scene_add_entity(grvgm_scene_t* scene, entity_t* entity) {
     grv_arr_push(&scene->entity_arr, entity);
 }
 
+bool scene_check_player_shot(grvgm_scene_t* scene, shot_t* shot) {
+    for (i32 i = 0; i < scene->entity_arr.size; i++) {
+        entity_t* e = scene->entity_arr.arr[i];
+        if (e->is_player || !e->is_alive) continue;
+        if (grv_rect_fixed32_point_inside(e->bounding_box, shot->pos)) {
+            e->is_alive = false;
+            return true;
+        }
+    }
+    return false;
+}
+
+
 void scene_update_shots(grvgm_scene_t* scene, grv_fixed32_t delta_t) {
     grv_vec2_fixed32_t size = grvgm_screen_size();
     i32 i = 0;
     while (i < scene->shot_arr.size) {
         shot_t* shot = scene->shot_arr.arr + i;
         grv_vec2_fixed32_t pos = grv_vec2_fixed32_smula(shot->vel, delta_t, shot->pos);
-        bool shot_alive = (pos.y.val >= 0 && pos.y.val < size.y.val);
+        bool shot_in_range = (pos.y.val >= 0 && pos.y.val < size.y.val);
+        bool shot_did_hit = scene_check_player_shot(scene, shot); 
+        bool shot_alive = shot_in_range && !shot_did_hit;
+
         if (shot_alive) {
             shot->pos = pos;
             i++;
@@ -116,7 +135,7 @@ void scene_update_shots(grvgm_scene_t* scene, grv_fixed32_t delta_t) {
 
 void grvgm_scene_update(grvgm_scene_t* scene, f32 dt) {
     grv_fixed32_t delta_t = grv_fixed32_from_f32(dt);
-    for (size_t i = 0; i < scene->entity_arr.size; ++i) {
+    for (i32 i = 0; i < scene->entity_arr.size; ++i) {
         entity_t* e = scene->entity_arr.arr[i];
         if (e->update_func) e->update_func(e, delta_t);
     }
@@ -124,15 +143,14 @@ void grvgm_scene_update(grvgm_scene_t* scene, f32 dt) {
 }
 
 void grvgm_scene_draw(grvgm_scene_t* scene) {
-    for (size_t i = 0; i < scene->entity_arr.size; ++i) {
+    for (i32 i = 0; i < scene->entity_arr.size; i++) {
         entity_t* e = scene->entity_arr.arr[i];
-        if (e->draw_func) e->draw_func(e);
+        if (e->is_alive && e->draw_func) e->draw_func(e);
     }
-    for (i32 i = 0; i < scene->shot_arr.size; ++i) {
+    for (i32 i = 0; i < scene->shot_arr.size; i++) {
         grvgm_draw_pixel(scene->shot_arr.arr[i].pos, 8);
     }
 }
-
 
 
 //==============================================================================

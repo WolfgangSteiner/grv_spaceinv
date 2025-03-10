@@ -44,6 +44,8 @@ void player_entity_update(entity_t* entity, grv_fixed32_t delta_t) {
         player_create_shot(pos);
         player->last_shot_timestamp = current_time;
     }
+
+    entity_update_bounding_box(entity);
 }
 
 player_entity_t* player_entity_create(void) {
@@ -54,6 +56,9 @@ player_entity_t* player_entity_create(void) {
                 .pos=grv_vec2_fixed32_from_i32(64, 118),
                 .index=0,
             },
+            .is_alive=true,
+            .is_player=true,
+            .bounding_box = {.w=grv_fixed32_from_i32(7), .h=grv_fixed32_from_i32(8)},
             .update_func=player_entity_update,
             .draw_func=entity_draw,
         },

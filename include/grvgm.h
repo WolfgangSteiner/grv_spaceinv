@@ -3,6 +3,8 @@
 
 #include "grv_gfx/grv_window.h"
 #include "grv/grv_vec2_fixed32.h"
+#include "grv/grv_rect_fixed32.h"
+#include "grv_gfx/grv_spritesheet8.h"
 
 typedef enum {
     GRVGM_BUTTON_CODE_LEFT  = 0,
@@ -33,6 +35,7 @@ typedef struct {
 void grvgm_clear_screen(u8 color);
 void grvgm_draw_sprite(grvgm_sprite_t sprite);
 void grvgm_draw_pixel(grv_vec2_fixed32_t pos, u8 color);
+void grvgm_draw_rect(grv_rect_fixed32_t rect, u8 color);
 grv_vec2_fixed32_t grvgm_screen_size(void);
 grv_fixed32_t grvgm_time(void);
 

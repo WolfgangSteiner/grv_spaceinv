@@ -27,7 +27,6 @@ bool _grvgm_is_key_down(int scancode) {
 }
 
 bool grvgm_is_button_down(grvgm_button_code_t button_code) {
-    const u8* keyboard_state = SDL_GetKeyboardState(NULL);
     switch (button_code) {
         case GRVGM_BUTTON_CODE_LEFT:
             return _grvgm_is_key_down(SDL_SCANCODE_LEFT) || _grvgm_is_key_down(SDL_SCANCODE_H);
@@ -155,6 +154,18 @@ void grvgm_draw_pixel(grv_vec2_fixed32_t pos,  u8 color) {
     );
 }
 
+void grvgm_draw_rect(grv_rect_fixed32_t rect, u8 color) {
+    recti_t r = {
+        .x=grv_fixed32_round(rect.x),
+        .y=grv_fixed32_round(rect.y),
+        .w=grv_fixed32_round(rect.w),
+        .h=grv_fixed32_round(rect.h)
+    };
+    grv_frame_buffer_draw_rect_u8(&_grvgm_state.window->frame_buffer, r, color);
+}
+
+
+
 grv_vec2_fixed32_t grvgm_screen_size(void) {
     i32 w = _grvgm_state.window->frame_buffer.width;
     i32 h = _grvgm_state.window->frame_buffer.height;
@@ -169,10 +180,12 @@ grv_fixed32_t grvgm_time(void) {
 //==============================================================================
 // main loop
 //==============================================================================
-void _grvgm_init() {
-    _grvgm_state.window = grv_window_new(128,128, 8.0f, grv_str_ref(""));
-    _grvgm_state.framebuffer = &_grvgm_state.window->frame_buffer;
-    grv_window_t* w = _grvgm_state.window;
+void _grvgm_init(void) {
+    grv_window_t* w = grv_window_new(128,128, 2.0f, grv_str_ref(""));
+    _grvgm_state.window = w;
+    w->horizontal_align = GRV_WINDOW_HORIZONTAL_ALIGN_RIGHT;
+    w->vertical_align = GRV_WINDOW_VERTICAL_ALIGN_TOP;
+    _grvgm_state.framebuffer = &w->frame_buffer;
     grv_color_palette_init_with_type(&w->frame_buffer.palette, GRV_COLOR_PALETTE_PICO8);
     w->borderless = true;
     grv_window_show(w);
@@ -188,11 +201,14 @@ void _grvgm_init() {
 } 
 
 int grvgm_main(int argc, char** argv) {
+    GRV_UNUSED(argc);
+    GRV_UNUSED(argv);
+
     _grvgm_init();
 
     on_init();
 
-    u64 last_timestamp = SDL_GetTicks64();
+    //u64 last_timestamp = SDL_GetTicks64();
     f32 delta_time = 0.0f;
     bool pause = true;
     bool show_debug_ui = false;
@@ -219,6 +235,7 @@ int grvgm_main(int argc, char** argv) {
         if (first_iteration) {
             _grvgm_state.game_time = 0;
             first_iteration = false;
+            on_update(0.0f);
         } else if (pause == false || grvgm_was_key_pressed('n')) {
             const u64 delta_timestamp = current_timestamp - _grvgm_state.timestamp;
             _grvgm_state.game_time += delta_timestamp;
