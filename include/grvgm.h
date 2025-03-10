@@ -36,6 +36,8 @@ void grvgm_clear_screen(u8 color);
 void grvgm_draw_sprite(grvgm_sprite_t sprite);
 void grvgm_draw_pixel(grv_vec2_fixed32_t pos, u8 color);
 void grvgm_draw_rect(grv_rect_fixed32_t rect, u8 color);
+void grvgm_draw_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color);
+void grvgm_fill_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color);
 grv_vec2_fixed32_t grvgm_screen_size(void);
 grv_fixed32_t grvgm_time(void);
 

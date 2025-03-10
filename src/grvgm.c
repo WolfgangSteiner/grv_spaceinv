@@ -163,6 +163,23 @@ void grvgm_draw_rect(grv_rect_fixed32_t rect, u8 color) {
     grv_framebuffer_draw_rect_u8(&_grvgm_state.window->framebuffer, r, color);
 }
 
+void grvgm_draw_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color) {
+    grv_framebuffer_draw_circle_u8(
+        &_grvgm_state.window->framebuffer, 
+        grv_fixed32_round(pos.x),
+        grv_fixed32_round(pos.y),
+        grv_fixed32_round(r),
+        color);
+}
+
+void grvgm_fill_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color) {
+    grv_framebuffer_fill_circle_u8(
+        &_grvgm_state.window->framebuffer, 
+        grv_fixed32_round(pos.x),
+        grv_fixed32_round(pos.y),
+        grv_fixed32_round(r),
+        color);
+}
 
 
 grv_vec2_fixed32_t grvgm_screen_size(void) {
