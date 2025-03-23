@@ -7,8 +7,6 @@ typedef struct {
 void alien_entity_update(entity_t* entity, grv_fixed32_t delta_t) {
     alien_entity_t* alien = (alien_entity_t*)entity;
     grv_fixed32_t new_x = grv_fixed32_mula(entity->vel.x, delta_t, entity->sprite.pos.x);
-    new_x = entity->sprite.pos.x;
-
     grv_fixed32_t displacement = grv_fixed32_abs(grv_fixed32_sub(new_x, alien->start_pos.x));
 
     if (grv_fixed32_ge(displacement, alien->max_displacement)) {
@@ -24,8 +22,6 @@ void alien_entity_update(entity_t* entity, grv_fixed32_t delta_t) {
     } else {
         entity->sprite.pos.x = new_x;
     }
-
-    entity_update_bounding_box(entity);
 }
 
 alien_entity_t* alien_entity_create(grv_vec2_fixed32_t pos, i32 direction) {
@@ -37,9 +33,8 @@ alien_entity_t* alien_entity_create(grv_vec2_fixed32_t pos, i32 direction) {
                 .index=16,
             },
             .vel = grv_vec2_fixed32_from_i32(20 * direction, 4),
+            .entity_type = ENTITY_TYPE_CLAW,
             .bounding_box = {.w=grv_fixed32_from_i32(7), .h=grv_fixed32_from_i32(8)},
-            .update_func = alien_entity_update,
-            .draw_func = entity_draw,
             .is_alive = true,
         },
         .start_pos = pos,

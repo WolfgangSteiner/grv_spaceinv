@@ -36,29 +36,45 @@ typedef struct {
 //==============================================================================
 // entity
 //==============================================================================
+typedef enum {
+    ENTITY_TYPE_PLAYER,
+    ENTITY_TYPE_CLAW,
+} entity_type_t;
+
 typedef struct entity_s {
     grvgm_sprite_t sprite;
+    entity_type_t entity_type;
     grv_vec2_fixed32_t vel;
     grv_rect_fixed32_t bounding_box;
     bool is_alive;
     bool is_player;
-    void(*update_func)(struct entity_s*, grv_fixed32_t);
-    void(*draw_func)(struct entity_s*);
 } entity_t;
-
-void entity_update(entity_t* entity, grv_fixed32_t delta_t) {
-    entity->sprite.pos = grv_vec2_fixed32_smula(entity->vel, delta_t, entity->sprite.pos);
-}
-
-void entity_draw(entity_t* entity) {
-    grvgm_draw_sprite(entity->sprite);
-    grvgm_draw_pixel(entity->sprite.pos, 8);
-    //grvgm_draw_rect(entity->bounding_box, 7);
-}
 
 void entity_update_bounding_box(entity_t* e) {
     e->bounding_box = grv_rect_fixed32_move_to(e->bounding_box, e->sprite.pos);
 }
+
+void alien_entity_update(entity_t*, grv_fixed32_t);
+
+void entity_update(entity_t* entity, grv_fixed32_t delta_t) {
+    switch (entity->entity_type) {
+        case ENTITY_TYPE_CLAW:
+            alien_entity_update(entity, delta_t);
+            break;
+        default:
+            entity->sprite.pos = grv_vec2_fixed32_smula(
+                entity->vel, delta_t, entity->sprite.pos);
+    }
+
+    entity_update_bounding_box(entity);
+}
+
+void entity_draw(entity_t* entity) {
+    grvgm_draw_sprite(entity->sprite);
+    //grvgm_draw_pixel(entity->sprite.pos, 8);
+    //grvgm_draw_rect(entity->bounding_box, 7);
+}
+
 
 //==============================================================================
 // shot
@@ -133,14 +149,14 @@ void update_shots(scene_t* scene, grv_fixed32_t delta_t) {
 void scene_update(scene_t* scene, grv_fixed32_t delta_t) {
     for (i32 i = 0; i < scene->entity_arr.size; ++i) {
         entity_t* e = scene->entity_arr.arr[i];
-        if (e->update_func) e->update_func(e, delta_t);
+        entity_update(e, delta_t);
     }
 }
 
 void scene_draw(scene_t* scene) {
     for (i32 i = 0; i < scene->entity_arr.size; i++) {
         entity_t* e = scene->entity_arr.arr[i];
-        if (e->is_alive && e->draw_func) e->draw_func(e);
+        if (e->is_alive) entity_draw(e);
     }
     for (i32 i = 0; i < scene->shot_arr.size; i++) {
         grvgm_draw_pixel(scene->shot_arr.arr[i].pos, 8);
@@ -189,7 +205,6 @@ typedef struct {
     player_t* player;
 } spaceinv_state_t;
 
-static spaceinv_state_t state = {0};
 
 #include "player.c"
 #include "alien.c"
@@ -198,7 +213,7 @@ void check_collision(scene_t* scene, player_t* player) {
     grv_rect_fixed32_t player_bbox = player->entity.bounding_box;
     for (i32 i = 0; i < scene->entity_arr.size; i++) {
         entity_t* e = scene->entity_arr.arr[i];
-        if (grv_rect_fixed32_intersect(player_bbox, e->bounding_box)) {
+        if (e->is_alive && grv_rect_fixed32_intersect(player_bbox, e->bounding_box)) {
             player->state = PLAYER_STATE_EXPLODING;
             player->state_start_time = grvgm_time();
             return;
@@ -217,8 +232,8 @@ void explosion_effect_update(particle_effect_t* e, grv_fixed32_t delta_t) {
             grv_pseudo_random_i32(0,7),
             grv_pseudo_random_i32(0,8));
         p->params[0] = grv_fixed32_from_i32(0); // current radius
-        p->params[1] = grv_fixed32_from_i32(3); // max radius
-        p->params[2] = grv_fixed32_from_f32(6.0f / 30.0f); // growth speed
+        p->params[1] = grv_fixed32_from_i32(24); // max radius
+        p->params[2] = grv_fixed32_from_f32(24.0f / 30.0f); // growth speed
         p->params[3] = grv_fixed32_from_i32(grv_pseudo_random_i32(7,10)); // color
     }
 
@@ -242,44 +257,45 @@ void explosion_effect_reset(particle_effect_t* e) {
     e->particles.size = 0;
 }
 
-void explosion_effect_draw(particle_effect_t* e) {
-    grv_vec2_fixed32_t player_pos = state.player->entity.sprite.pos;
+void explosion_effect_draw(spaceinv_state_t* state, particle_effect_t* e) {
+    grv_vec2_fixed32_t player_pos = state->player->entity.sprite.pos;
     for (i32 i = 0; i < e->particles.size; i++) {
         particle_t* p = &e->particles.arr[i];
         grv_vec2_fixed32_t pos = grv_vec2_fixed32_add(player_pos, p->pos);
         grv_fixed32_t radius = p->params[0];
         i32 color = grv_fixed32_round(p->params[3]);
-        grvgm_draw_circle(pos, radius, color);
+        grvgm_fill_circle(pos, radius, color);
     }
 }
 
-void on_init(void) {
-    state.scene = scene_new();
-    state.player = player_create();
-    alien_create_wave(state.scene, 5, 8);
-    explosion_effect_reset(&state.player->explosion_effect);
+void* on_init(void) {
+    spaceinv_state_t* state = grv_alloc_zeros(sizeof(spaceinv_state_t));
+    state->scene = scene_new();
+    state->player = player_create();
+    alien_create_wave(state->scene, 5, 8);
+    explosion_effect_reset(&state->player->explosion_effect);
+    return state;
 }
 
-void on_update(f32 delta_time) {
+void on_update(void* game_state, f32 delta_time) {
+    spaceinv_state_t* state = game_state;
     grv_fixed32_t delta_t = grv_fixed32_from_f32(delta_time);
-    scene_update(state.scene, delta_t);
-    player_update(state.player, delta_t); 
-    update_shots(state.scene, delta_t);
-    check_collision(state.scene, state.player);
-    explosion_effect_update(&state.player->explosion_effect, delta_t);
+    scene_update(state->scene, delta_t);
+    player_update(state, delta_t); 
+    update_shots(state->scene, delta_t);
+    check_collision(state->scene, state->player);
+    if (state->player->state == PLAYER_STATE_EXPLODING) {
+        explosion_effect_update(&state->player->explosion_effect, delta_t);
+    }
 }
 
-void on_draw(void) {
-    grvgm_clear_screen(0);
-    scene_draw(state.scene);
-    entity_draw(&state.player->entity);
-    explosion_effect_draw(&state.player->explosion_effect);
+void on_draw(void* game_state) {
+    spaceinv_state_t* state = game_state;
+    grvgm_clear_screen(3);
+    scene_draw(state->scene);
+    entity_draw(&state->player->entity);
+    if (state->player->state == PLAYER_STATE_EXPLODING) {
+        explosion_effect_draw(state, &state->player->explosion_effect);
+    }
 }
 
-//==============================================================================
-// main
-//==============================================================================
-int main(int argc, char** argv) {
-    grvgm_main(argc, argv);
-    return 0;
-}

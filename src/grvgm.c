@@ -1,26 +1,68 @@
 #include "grvgm.h"
 #include "grv/grv_log.h"
+#include "grv/grv_fs.h"
 #include "grv_gfx/grv_bitmap_font.h"
 #include "grv_gfx/grv_framebuffer.h"
 #include "grv_gfx/grv_img8.h"
 #include "grv_gfx/grv_spritesheet8.h"
 #include <SDL2/SDL.h>
+
+typedef void* (*grvgm_on_init_func)(void);
+typedef void (*grvgm_on_update_func)(void*, f32);
+typedef void (*grvgm_on_draw_func)(void*);
+
 typedef struct {
     grv_window_t* window;
     grv_framebuffer_t* framebuffer;
     grv_bitmap_font_t* font;
     grv_spritesheet8_t spritesheet;
+    u64 spritesheet_mod_time;
+    u64 spritesheet_timestamp;
     u64 timestamp;
     u64 game_time;
+    void* lib_handle;
+    grvgm_on_init_func on_init;
+    grvgm_on_update_func on_update;
+    grvgm_on_draw_func on_draw;
+    void* game_state;
 } grvgm_state_t;
 static grvgm_state_t _grvgm_state = {0};
-
+char* _grv_spritesheet_file_path = "assets/spritesheet.bmp";
 static u8* _grvgm_previous_keyboard_state = NULL;
 static u8* _grvgm_current_keyboard_state = NULL;
+//==============================================================================
+// hot-loading of game code
+//==============================================================================
+int _grvgm_load_game_code(char* path) {
+    if (_grvgm_state.lib_handle) {
+        _grvgm_state.on_init = NULL;
+        _grvgm_state.on_update = NULL;
+        _grvgm_state.on_draw = NULL;
+        dlclose(_grvgm_state.lib_handle);
+        _grvgm_state.lib_handle = NULL;
+    }
+
+    _grvgm_state.lib_handle = dlopen(path, RTLD_LAZY);
+    if (_grvgm_state.lib_handle == NULL) {
+        printf("[ERROR] Could not open dynamic library %s.\n", path);
+        exit(1);
+    }
+
+    _grvgm_state.on_init = (grvgm_on_init_func)dlsym(_grvgm_state.lib_handle, "on_init");
+    _grvgm_state.on_update = (grvgm_on_update_func)dlsym(_grvgm_state.lib_handle, "on_update");
+    _grvgm_state.on_draw = (grvgm_on_draw_func)dlsym(_grvgm_state.lib_handle, "on_draw");
+    
+    grv_assert(_grvgm_state.on_init);
+    grv_assert(_grvgm_state.on_update);
+    grv_assert(_grvgm_state.on_draw);
+    return 0;
+}
+
+
 
 //==============================================================================
 // Keyboard and button state
-//==============================================================================
+//=============================================================ago=================
 bool _grvgm_is_key_down(int scancode) {
     if (_grvgm_current_keyboard_state == NULL) return false;
     return _grvgm_current_keyboard_state[scancode] != 0;
@@ -68,6 +110,7 @@ int _grvgm_char_to_sdl_scancode(char key) {
     switch(key) {
         case 'n': return SDL_SCANCODE_N;
         case 'p': return SDL_SCANCODE_P;
+        case 'r': return SDL_SCANCODE_R;
         default: return -1;
     }
 }
@@ -78,6 +121,27 @@ bool grvgm_was_key_pressed(char key) {
     return _grvgm_previous_keyboard_state[scancode] == 0 && _grvgm_current_keyboard_state[scancode] != 0;
 }
 
+bool grvgm_is_keymod_down(grvgm_keymod_t keymod) {
+    if (keymod & GRVGM_KEYMOD_SHIFT_LEFT) {
+        if (_grvgm_current_keyboard_state[SDL_SCANCODE_LSHIFT]) return true;
+    }
+    if (keymod & GRVGM_KEYMOD_SHIFT_RIGHT) {
+        if (_grvgm_current_keyboard_state[SDL_SCANCODE_RSHIFT]) return true;
+    }
+    if (keymod & GRVGM_KEYMOD_CTRL_LEFT) {
+        if (_grvgm_current_keyboard_state[SDL_SCANCODE_LCTRL]) return true;
+    }
+    if (keymod & GRVGM_KEYMOD_CTRL_RIGHT) {
+        if (_grvgm_current_keyboard_state[SDL_SCANCODE_RCTRL]) return true;
+    }
+    if (keymod & GRVGM_KEYMOD_ALT_LEFT) {
+        if (_grvgm_current_keyboard_state[SDL_SCANCODE_LALT]) return true;
+    }
+    if (keymod & GRVGM_KEYMOD_ALT_RIGHT) {
+        if (_grvgm_current_keyboard_state[SDL_SCANCODE_RALT]) return true;
+    }
+    return false;
+}
 
 //==============================================================================
 // debug ui
@@ -142,10 +206,10 @@ void grvgm_draw_sprite(grvgm_sprite_t sprite) {
         &img,
         grv_fixed32_round(sprite.pos.x),
         grv_fixed32_round(sprite.pos.y)
-    );   
+    );
 }
 
-void grvgm_draw_pixel(grv_vec2_fixed32_t pos,  u8 color) {
+void grvgm_draw_pixel(grv_vec2_fixed32_t pos, u8 color) {
     grv_framebuffer_set_pixel_u8(
         &_grvgm_state.window->framebuffer,
         vec2i_make(grv_fixed32_round(pos.x), grv_fixed32_round(pos.y)),
@@ -197,11 +261,44 @@ grv_fixed32_t grvgm_timediff(grv_fixed32_t timestamp) {
     return grv_fixed32_sub(grvgm_time(), timestamp);
 }
 
+u64 _grvgm_spritesheet_mod_time() {
+    grv_u64_result_t result = grv_fs_file_mod_time(grv_str_ref(_grv_spritesheet_file_path));
+    if (!result.valid) {
+        grv_abort(result.error);
+    }
+    return result.value;
+}
+
+void _grvgm_load_spritesheet() {
+    grv_log_info(grv_str_ref("Loading sprite sheet."));
+    _grvgm_state.spritesheet.spr_w = 8;
+    _grvgm_state.spritesheet.spr_h = 8;
+    grv_error_t err;
+    bool success = grv_spritesheet8_load_from_bmp(grv_str_ref(_grv_spritesheet_file_path), &_grvgm_state.spritesheet, &err);
+    if (success == false) {
+        grv_abort(err);
+    }
+    _grvgm_state.spritesheet_mod_time = _grvgm_spritesheet_mod_time();
+    _grvgm_state.spritesheet_timestamp = SDL_GetTicks64();
+}
+
+void _grvgm_check_reload_spritesheet() {
+    u64 timestamp = SDL_GetTicks64();
+    if (timestamp - _grvgm_state.spritesheet_timestamp > 1000) {
+        u64 mod_time = _grvgm_spritesheet_mod_time();
+        if (mod_time > _grvgm_state.spritesheet_mod_time) {
+            _grvgm_load_spritesheet();
+        }
+        _grvgm_state.spritesheet_timestamp = timestamp;
+    }
+}
 
 //==============================================================================
 // main loop
 //==============================================================================
 void _grvgm_init(void) {
+    _grvgm_load_game_code("libspaceinv.so");
+    _grvgm_load_spritesheet();
     grv_window_t* w = grv_window_new(128,128, 2.0f, grv_str_ref(""));
     _grvgm_state.window = w;
     w->horizontal_align = GRV_WINDOW_HORIZONTAL_ALIGN_RIGHT;
@@ -209,16 +306,9 @@ void _grvgm_init(void) {
     _grvgm_state.framebuffer = &w->framebuffer;
     grv_color_palette_init_with_type(&w->framebuffer.palette, GRV_COLOR_PALETTE_PICO8);
     w->borderless = true;
+    w->resizable = true;
     grv_window_show(w);
     _grvgm_state.font = grv_get_cozette_font();
-    grv_log_info(grv_str_ref("Loading sprite sheet..."));
-    _grvgm_state.spritesheet.spr_w = 8;
-    _grvgm_state.spritesheet.spr_h = 8;
-    grv_error_t err;
-    bool success = grv_spritesheet8_load_from_bmp(grv_str_ref("assets/spritesheet.bmp"), &_grvgm_state.spritesheet, &err);
-    if (success == false) {
-        grv_abort(err);
-    }
 } 
 
 int grvgm_main(int argc, char** argv) {
@@ -226,8 +316,7 @@ int grvgm_main(int argc, char** argv) {
     GRV_UNUSED(argv);
 
     _grvgm_init();
-
-    on_init();
+    _grvgm_state.game_state = _grvgm_state.on_init();
 
     //u64 last_timestamp = SDL_GetTicks64();
     f32 delta_time = 0.0f;
@@ -242,8 +331,19 @@ int grvgm_main(int argc, char** argv) {
     while (true) {
         grv_window_poll_events();
         grvgm_poll_keyboard();
+        _grvgm_check_reload_spritesheet();
 
-        if (grvgm_was_key_pressed('p')) {
+        if (grvgm_was_key_pressed('r') && grvgm_is_keymod_down(GRVGM_KEYMOD_CTRL)) {
+            _grvgm_load_game_code("libspaceinv.so");
+            printf("[INFO] Reloaded game code.\n");
+            if (grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT)) {
+                printf("[INFO] Resetting game state.\n");
+                grv_free(_grvgm_state.game_state);
+                _grvgm_state.game_state = _grvgm_state.on_init();
+            }
+        }
+
+        if (grvgm_was_key_pressed('p') && grvgm_is_keymod_down(GRVGM_KEYMOD_CTRL)) {
             pause = !pause;
         }
 
@@ -256,17 +356,17 @@ int grvgm_main(int argc, char** argv) {
         if (first_iteration) {
             _grvgm_state.game_time = 0;
             first_iteration = false;
-            on_update(0.0f);
+            _grvgm_state.on_update(_grvgm_state.game_state, 0.0f);
         } else if (pause == false || grvgm_was_key_pressed('n')) {
             const u64 delta_timestamp = current_timestamp - _grvgm_state.timestamp;
             _grvgm_state.game_time += delta_timestamp;
             delta_time = (f32)delta_timestamp / 1000.0f; 
-            on_update(delta_time);
+            _grvgm_state.on_update(_grvgm_state.game_state, delta_time);
         }
 
         _grvgm_state.timestamp = current_timestamp;
 
-        on_draw();
+        _grvgm_state.on_draw(_grvgm_state.game_state);
 
         if (show_debug_ui) {
             grvgm_draw_button_state(fb);
@@ -278,4 +378,3 @@ int grvgm_main(int argc, char** argv) {
 
     return 0;
 }
-

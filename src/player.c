@@ -12,8 +12,8 @@ char* player_sprite_data =
 "        ";
 
 
-void player_create_shot(grv_vec2_fixed32_t pos) {
-    scene_t* scene = state.scene;
+void player_create_shot(spaceinv_state_t* state, grv_vec2_fixed32_t pos) {
+    scene_t* scene = state->scene;
     if (scene->shot_arr.size < scene->shot_arr.capacity) {
         shot_t* shot = &scene->shot_arr.arr[scene->shot_arr.size++];
         shot->pos = pos;
@@ -21,7 +21,8 @@ void player_create_shot(grv_vec2_fixed32_t pos) {
     }
 }
 
-void player_update(player_t* player, grv_fixed32_t delta_t) {
+void player_update(spaceinv_state_t* state, grv_fixed32_t delta_t) {
+    player_t* player = state->player;
     entity_t* entity = &player->entity;
     grv_fixed32_t spd_x_value = entity->vel.x;
     grv_fixed32_t spd_x = {0};
@@ -44,7 +45,7 @@ void player_update(player_t* player, grv_fixed32_t delta_t) {
         grv_vec2_fixed32_t pos = grv_vec2_fixed32_add(
             entity->sprite.pos,
             grv_vec2_fixed32_from_i32(3, 0));
-        player_create_shot(pos);
+        player_create_shot(state, pos);
         player->last_shot_timestamp = current_time;
     }
 
@@ -59,11 +60,11 @@ player_t* player_create(void) {
                 .pos=grv_vec2_fixed32_from_i32(64, 118),
                 .index=0,
             },
+            .entity_type = ENTITY_TYPE_PLAYER,
             .vel=grv_vec2_fixed32_from_i32(120, 120),
             .is_alive=true,
             .is_player=true,
             .bounding_box = {.w=grv_fixed32_from_i32(7), .h=grv_fixed32_from_i32(8)},
-            .draw_func=entity_draw,
         },
         .shot_delay=grv_fixed32_from_f32(0.25)
     };
