@@ -10,22 +10,11 @@
 #include "grv/grv_math.h"
 #include "grv/grv_pseudo_random.h"
 
+#include "src/spaceinv.h"
+
 //==============================================================================
 // sprites
 //==============================================================================
-typedef enum {
-    GRV_SPRITE_ANIMATION_NONE,
-    GRV_SPRITE_ANIMATION_FORWARD,
-    GRV_SPRITE_ANIMATION_BACKWARD,
-    GRV_SPRITE_ANIMATION_PINGPONG,
-} grv_sprite_animation_type_t;
-
-typedef struct {
-    u8 start_idx, end_idx, current_idx, frame_count;
-    grv_sprite_animation_type_t animation_type;
-    f32 prev_timestamp;
-    f32 animation_delay;
-} grvgm_sprite_animation_t;
 
 // void grv_framebuffer_put_sprite(grv_framebuffer_t* fb, grvgm_sprite_t* spr, i32 x, i32 y) {
 //     x -= spr->origin.x;
@@ -36,19 +25,6 @@ typedef struct {
 //==============================================================================
 // entity
 //==============================================================================
-typedef enum {
-    ENTITY_TYPE_PLAYER,
-    ENTITY_TYPE_CLAW,
-} entity_type_t;
-
-typedef struct entity_s {
-    grvgm_sprite_t sprite;
-    entity_type_t entity_type;
-    grv_vec2_fixed32_t vel;
-    grv_rect_fixed32_t bounding_box;
-    bool is_alive;
-    bool is_player;
-} entity_t;
 
 void entity_update_bounding_box(entity_t* e) {
     e->bounding_box = grv_rect_fixed32_move_to(e->bounding_box, e->sprite.pos);
@@ -76,47 +52,21 @@ void entity_draw(entity_t* entity) {
 }
 
 
-//==============================================================================
-// shot
-//==============================================================================
-typedef struct {
-    grv_vec2_fixed32_t pos;
-    grv_vec2_fixed32_t vel;
-} shot_t;
-
-//==============================================================================
-// scene
-//==============================================================================
-typedef struct {
-    struct {
-        entity_t** arr;
-        i32 size;
-        i32 capacity;
-    } entity_arr;
-    struct {
-        shot_t* arr;
-        i32 size;
-        i32 capacity;
-    } shot_arr;
-} scene_t;
-
 #define GRV_ALLOC_OBJECT_ZERO(TYPE) grv_alloc_zeros(sizeof(TYPE))
 
-scene_t* scene_new(void) {
-    scene_t* s = GRV_ALLOC_OBJECT_ZERO(scene_t);
-    s->shot_arr.capacity = 128;
-    s->shot_arr.arr = grv_alloc_zeros(sizeof(shot_t) * s->shot_arr.capacity);
-    return s;
+void scene_init(scene_t* s) {
+    s->entity_arr.capacity = 128;
 }
 
-void scene_add_entity(scene_t* scene, entity_t* entity) {
-    grv_arr_push(&scene->entity_arr, entity);
+entity_t* scene_add_entity(scene_t* scene) {
+    if (scene->entity_arr.size == scene->entity_arr.capacity) return NULL;
+    return &scene->entity_arr.arr[scene->entity_arr.size++];
 }
 
 bool check_player_shot(scene_t* scene, shot_t* shot) {
     for (i32 i = 0; i < scene->entity_arr.size; i++) {
-        entity_t* e = scene->entity_arr.arr[i];
-        if (e->is_player || !e->is_alive) continue;
+        entity_t* e = &scene->entity_arr.arr[i];
+        if (!e->is_alive) continue;
         if (grv_rect_fixed32_point_inside(e->bounding_box, shot->pos)) {
             e->is_alive = false;
             return true;
@@ -126,96 +76,61 @@ bool check_player_shot(scene_t* scene, shot_t* shot) {
 }
 
 
-void update_shots(scene_t* scene, grv_fixed32_t delta_t) {
+void update_shots(spaceinv_state_t* state, grv_fixed32_t delta_t) {
     grv_vec2_fixed32_t size = grvgm_screen_size();
     i32 i = 0;
-    while (i < scene->shot_arr.size) {
-        shot_t* shot = scene->shot_arr.arr + i;
+    while (i < state->shot_arr.size) {
+        shot_t* shot = state->shot_arr.arr + i;
         grv_vec2_fixed32_t pos = grv_vec2_fixed32_smula(shot->vel, delta_t, shot->pos);
         bool shot_in_range = (pos.y.val >= 0 && pos.y.val < size.y.val);
-        bool shot_did_hit = check_player_shot(scene, shot); 
+        bool shot_did_hit = check_player_shot(&state->scene, shot); 
         bool shot_alive = shot_in_range && !shot_did_hit;
 
         if (shot_alive) {
             shot->pos = pos;
             i++;
         } else {
-            scene->shot_arr.size--;
-            *shot = scene->shot_arr.arr[scene->shot_arr.size];
+            state->shot_arr.size--;
+            *shot = state->shot_arr.arr[state->shot_arr.size];
         }
     }
 }
 
 void scene_update(scene_t* scene, grv_fixed32_t delta_t) {
     for (i32 i = 0; i < scene->entity_arr.size; ++i) {
-        entity_t* e = scene->entity_arr.arr[i];
+        entity_t* e = &scene->entity_arr.arr[i];
         entity_update(e, delta_t);
     }
 }
 
 void scene_draw(scene_t* scene) {
     for (i32 i = 0; i < scene->entity_arr.size; i++) {
-        entity_t* e = scene->entity_arr.arr[i];
+        entity_t* e = &scene->entity_arr.arr[i];
         if (e->is_alive) entity_draw(e);
     }
-    for (i32 i = 0; i < scene->shot_arr.size; i++) {
-        grvgm_draw_pixel(scene->shot_arr.arr[i].pos, 8);
+}
+
+void shots_draw(spaceinv_state_t* state) {
+    for (i32 i = 0; i < state->shot_arr.size; i++) {
+        grvgm_draw_pixel(state->shot_arr.arr[i].pos, 8);
     }
 }
 
 //==============================================================================
 // spaceinvaders game code
 //==============================================================================
-typedef enum {
-    PLAYER_STATE_NORMAL,
-    PLAYER_STATE_EXPLODING,
-    PLAYER_STATE_DEAD,
-} player_state_t;
-
-typedef struct {
-    grv_vec2_fixed32_t pos;
-    grv_fixed32_t params[4];
-} particle_t;
-
-
-#define MAX_NUM_PARTICLES 32
-#define MAX_NUM_EFFECTS 32
-
-typedef struct {
-    grv_fixed32_t timestamp;
-    grv_fixed32_t generation_rate;
-    i32 max_num_particles;
-    struct {
-        i32 size;
-        particle_t arr[MAX_NUM_PARTICLES];
-    } particles;
-} particle_effect_t;
-
-typedef struct {
-    entity_t entity;
-    grv_fixed32_t last_shot_timestamp;
-    grv_fixed32_t shot_delay;
-    player_state_t state;
-    grv_fixed32_t state_start_time;
-    particle_effect_t explosion_effect;
-} player_t;
-
-typedef struct {
-    scene_t* scene;
-    player_t* player;
-} spaceinv_state_t;
 
 
 #include "player.c"
 #include "alien.c"
 
-void check_collision(scene_t* scene, player_t* player) {
-    grv_rect_fixed32_t player_bbox = player->entity.bounding_box;
+void check_collision(scene_t* scene, entity_t* player) {
+    grv_rect_fixed32_t player_bbox = player->bounding_box;
     for (i32 i = 0; i < scene->entity_arr.size; i++) {
-        entity_t* e = scene->entity_arr.arr[i];
+        entity_t* e = &scene->entity_arr.arr[i];
         if (e->is_alive && grv_rect_fixed32_intersect(player_bbox, e->bounding_box)) {
-            player->state = PLAYER_STATE_EXPLODING;
-            player->state_start_time = grvgm_time();
+            player->player.state = PLAYER_STATE_EXPLODING;
+            player->player.state_start_time = grvgm_time();
             return;
         }
     }
@@ -258,7 +173,7 @@ void explosion_effect_reset(particle_effect_t* e) {
 }
 
 void explosion_effect_draw(spaceinv_state_t* state, particle_effect_t* e) {
-    grv_vec2_fixed32_t player_pos = state->player->entity.sprite.pos;
+    grv_vec2_fixed32_t player_pos = state->player.sprite.pos;
     for (i32 i = 0; i < e->particles.size; i++) {
         particle_t* p = &e->particles.arr[i];
         grv_vec2_fixed32_t pos = grv_vec2_fixed32_add(player_pos, p->pos);
@@ -268,34 +183,38 @@ void explosion_effect_draw(spaceinv_state_t* state, particle_effect_t* e) {
     }
 }
 
-void* on_init(void) {
+void on_init(void** game_state, size_t* size) {
     spaceinv_state_t* state = grv_alloc_zeros(sizeof(spaceinv_state_t));
-    state->scene = scene_new();
-    state->player = player_create();
-    alien_create_wave(state->scene, 5, 8);
-    explosion_effect_reset(&state->player->explosion_effect);
-    return state;
+    scene_init(&state->scene);
+    player_init(&state->player);
+    alien_create_wave(&state->scene, 5, 8);
+    explosion_effect_reset(&state->player_explosion_effect);
+    state->shot_arr.capacity = 128;
+    *game_state = state;
+    *size = sizeof(spaceinv_state_t);
+    printf("sizeof(spaceinv_state_t): %d\n", (int)sizeof(spaceinv_state_t));
 }
 
 void on_update(void* game_state, f32 delta_time) {
     spaceinv_state_t* state = game_state;
     grv_fixed32_t delta_t = grv_fixed32_from_f32(delta_time);
-    scene_update(state->scene, delta_t);
+    scene_update(&state->scene, delta_t);
     player_update(state, delta_t); 
-    update_shots(state->scene, delta_t);
-    check_collision(state->scene, state->player);
-    if (state->player->state == PLAYER_STATE_EXPLODING) {
-        explosion_effect_update(&state->player->explosion_effect, delta_t);
+    update_shots(state, delta_t);
+    check_collision(&state->scene, &state->player);
+    if (state->player.player.state == PLAYER_STATE_EXPLODING) {
+        explosion_effect_update(&state->player_explosion_effect, delta_t);
     }
 }
 
 void on_draw(void* game_state) {
     spaceinv_state_t* state = game_state;
     grvgm_clear_screen(3);
-    scene_draw(state->scene);
-    entity_draw(&state->player->entity);
-    if (state->player->state == PLAYER_STATE_EXPLODING) {
-        explosion_effect_draw(state, &state->player->explosion_effect);
+    scene_draw(&state->scene);
+    entity_draw(&state->player);
+    shots_draw(state);
+    if (state->player.player.state == PLAYER_STATE_EXPLODING) {
+        explosion_effect_draw(state, &state->player_explosion_effect);
     }
 }
 

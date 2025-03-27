@@ -7,7 +7,7 @@
 #include "grv_gfx/grv_spritesheet8.h"
 #include <SDL2/SDL.h>
 
-typedef void* (*grvgm_on_init_func)(void);
+typedef void (*grvgm_on_init_func)(void**, size_t*);
 typedef void (*grvgm_on_update_func)(void*, f32);
 typedef void (*grvgm_on_draw_func)(void*);
 
@@ -19,13 +19,26 @@ typedef struct {
     u64 spritesheet_mod_time;
     u64 spritesheet_timestamp;
     u64 timestamp;
-    u64 game_time;
     void* lib_handle;
+    u64 game_time_ms;
+    u64 frame_index;
     grvgm_on_init_func on_init;
     grvgm_on_update_func on_update;
     grvgm_on_draw_func on_draw;
     void* game_state;
+    size_t game_state_size;
+    struct {
+        size_t capacity;
+        size_t size;
+        void* data;
+    } game_state_store;
 } grvgm_state_t;
+
+typedef struct {
+    u64 frame_index;
+    u64 game_time_ms;
+} grvgm_frame_info_t;
+
 static grvgm_state_t _grvgm_state = {0};
 char* _grv_spritesheet_file_path = "assets/spritesheet.bmp";
 static u8* _grvgm_previous_keyboard_state = NULL;
@@ -38,19 +51,19 @@ int _grvgm_load_game_code(char* path) {
         _grvgm_state.on_init = NULL;
         _grvgm_state.on_update = NULL;
         _grvgm_state.on_draw = NULL;
-        dlclose(_grvgm_state.lib_handle);
+        SDL_UnloadObject(_grvgm_state.lib_handle);
         _grvgm_state.lib_handle = NULL;
     }
 
-    _grvgm_state.lib_handle = dlopen(path, RTLD_LAZY);
+    _grvgm_state.lib_handle = SDL_LoadObject(path);
     if (_grvgm_state.lib_handle == NULL) {
         printf("[ERROR] Could not open dynamic library %s.\n", path);
         exit(1);
     }
 
-    _grvgm_state.on_init = (grvgm_on_init_func)dlsym(_grvgm_state.lib_handle, "on_init");
-    _grvgm_state.on_update = (grvgm_on_update_func)dlsym(_grvgm_state.lib_handle, "on_update");
-    _grvgm_state.on_draw = (grvgm_on_draw_func)dlsym(_grvgm_state.lib_handle, "on_draw");
+    _grvgm_state.on_init = (grvgm_on_init_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_init");
+    _grvgm_state.on_update = (grvgm_on_update_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_update");
+    _grvgm_state.on_draw = (grvgm_on_draw_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_draw");
     
     grv_assert(_grvgm_state.on_init);
     grv_assert(_grvgm_state.on_update);
@@ -253,15 +266,14 @@ grv_vec2_fixed32_t grvgm_screen_size(void) {
 }
 
 grv_fixed32_t grvgm_time(void) {
-    f32 seconds = _grvgm_state.game_time / 1000.0f;
-    return grv_fixed32_from_f32(seconds);
+    return (grv_fixed32_t){.val = (i32)(_grvgm_state.game_time_ms * 1024 / 1000)};
 }
 
 grv_fixed32_t grvgm_timediff(grv_fixed32_t timestamp) {
     return grv_fixed32_sub(grvgm_time(), timestamp);
 }
 
-u64 _grvgm_spritesheet_mod_time() {
+u64 _grvgm_spritesheet_mod_time(void) {
     grv_u64_result_t result = grv_fs_file_mod_time(grv_str_ref(_grv_spritesheet_file_path));
     if (!result.valid) {
         grv_abort(result.error);
@@ -269,7 +281,7 @@ u64 _grvgm_spritesheet_mod_time() {
     return result.value;
 }
 
-void _grvgm_load_spritesheet() {
+void _grvgm_load_spritesheet(void) {
     grv_log_info(grv_str_ref("Loading sprite sheet."));
     _grvgm_state.spritesheet.spr_w = 8;
     _grvgm_state.spritesheet.spr_h = 8;
@@ -282,7 +294,7 @@ void _grvgm_load_spritesheet() {
     _grvgm_state.spritesheet_timestamp = SDL_GetTicks64();
 }
 
-void _grvgm_check_reload_spritesheet() {
+void _grvgm_check_reload_spritesheet(void) {
     u64 timestamp = SDL_GetTicks64();
     if (timestamp - _grvgm_state.spritesheet_timestamp > 1000) {
         u64 mod_time = _grvgm_spritesheet_mod_time();
@@ -309,17 +321,60 @@ void _grvgm_init(void) {
     w->resizable = true;
     grv_window_show(w);
     _grvgm_state.font = grv_get_cozette_font();
+    _grvgm_state.game_state_store.capacity = 1024ull*1024ull*1024ull;
+    _grvgm_state.game_state_store.size = 0;
+    _grvgm_state.game_state_store.data = grv_alloc(_grvgm_state.game_state_store.capacity);
 } 
+
+void _grvgm_push_game_state() {
+    size_t element_size = _grvgm_state.game_state_size + sizeof(grvgm_frame_info_t);
+    size_t current_size = _grvgm_state.game_state_store.size * element_size;
+    size_t new_size = current_size + element_size;
+    if (new_size > _grvgm_state.game_state_store.capacity) {
+        _grvgm_state.game_state_store.capacity *= 2;
+        _grvgm_state.game_state_store.data = grv_realloc(
+            _grvgm_state.game_state_store.data,
+            _grvgm_state.game_state_store.capacity);
+    }
+    void* dst = _grvgm_state.game_state_store.data + current_size;
+    grvgm_frame_info_t frame_info = {
+        .frame_index=_grvgm_state.frame_index,
+        .game_time_ms=_grvgm_state.game_time_ms
+    };
+    *(grvgm_frame_info_t*)dst = frame_info;
+    dst += sizeof(grvgm_frame_info_t);
+    grv_memcpy(dst, _grvgm_state.game_state, _grvgm_state.game_state_size);
+    _grvgm_state.game_state_store.size++;
+}
+
+void _grvgm_pop_game_state(u64 count) {
+    size_t num_states = _grvgm_state.game_state_store.size;
+    if (num_states == 0) return;
+    u64 new_frame_index = num_states < count ? 0 : num_states - count;
+    size_t element_size = _grvgm_state.game_state_size + sizeof(grvgm_frame_info_t);
+    void* src = _grvgm_state.game_state_store.data + new_frame_index * element_size;
+    grvgm_frame_info_t frame_info = *(grvgm_frame_info_t*)src;
+    src += sizeof(grvgm_frame_info_t);
+    grv_memcpy(_grvgm_state.game_state, src, _grvgm_state.game_state_size);
+    _grvgm_state.frame_index = frame_info.frame_index;
+    _grvgm_state.game_time_ms = frame_info.game_time_ms;
+    _grvgm_state.game_state_store.size = new_frame_index + 1;
+}
+
+void _grvgm_reset_game_state_store() {
+    _grvgm_state.game_state_store.size = 0;
+}
 
 int grvgm_main(int argc, char** argv) {
     GRV_UNUSED(argc);
     GRV_UNUSED(argv);
 
     _grvgm_init();
-    _grvgm_state.game_state = _grvgm_state.on_init();
-
+    _grvgm_state.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
+    printf("[INFO] game_state_size: %d (%.2fk/s)\n",
+           (int)_grvgm_state.game_state_size,
+           (f32)_grvgm_state.game_state_size*32.0f/1024.0f);
     //u64 last_timestamp = SDL_GetTicks64();
-    f32 delta_time = 0.0f;
     bool pause = true;
     bool show_debug_ui = false;
 
@@ -329,6 +384,7 @@ int grvgm_main(int argc, char** argv) {
     bool first_iteration = true;
 
     while (true) {
+        u64 frame_start_time_ms = SDL_GetTicks64();
         grv_window_poll_events();
         grvgm_poll_keyboard();
         _grvgm_check_reload_spritesheet();
@@ -338,8 +394,10 @@ int grvgm_main(int argc, char** argv) {
             printf("[INFO] Reloaded game code.\n");
             if (grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT)) {
                 printf("[INFO] Resetting game state.\n");
-                grv_free(_grvgm_state.game_state);
-                _grvgm_state.game_state = _grvgm_state.on_init();
+                if (_grvgm_state.game_state) {
+                    grv_free(_grvgm_state.game_state);
+                }
+                _grvgm_state.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
             }
         }
 
@@ -354,17 +412,20 @@ int grvgm_main(int argc, char** argv) {
         const u64 current_timestamp = SDL_GetTicks64();
 
         if (first_iteration) {
-            _grvgm_state.game_time = 0;
             first_iteration = false;
+            _grvgm_state.game_time_ms = 0;
             _grvgm_state.on_update(_grvgm_state.game_state, 0.0f);
+            _grvgm_push_game_state();
         } else if (pause == false || grvgm_was_key_pressed('n')) {
-            const u64 delta_timestamp = current_timestamp - _grvgm_state.timestamp;
-            _grvgm_state.game_time += delta_timestamp;
-            delta_time = (f32)delta_timestamp / 1000.0f; 
+            const u64 delta_timestamp_ms = _grvgm_state.frame_index % 4 == 0 ? 32 : 31; 
+            _grvgm_state.game_time_ms += delta_timestamp_ms;
+            _grvgm_state.frame_index++;
+            f32 delta_time = (f32)delta_timestamp_ms / 1000.0f; 
             _grvgm_state.on_update(_grvgm_state.game_state, delta_time);
+            _grvgm_push_game_state();
+        } else if (pause == true && grvgm_was_key_pressed('p')) {
+            _grvgm_pop_game_state(2);
         }
-
-        _grvgm_state.timestamp = current_timestamp;
 
         _grvgm_state.on_draw(_grvgm_state.game_state);
 
@@ -373,7 +434,14 @@ int grvgm_main(int argc, char** argv) {
         }
 
         grv_window_present(w);
-        grv_sleep(0.03);
+
+
+        u64 frame_end_time_ms = SDL_GetTicks64();
+        u64 frame_time_ms = frame_end_time_ms - frame_start_time_ms;
+        u64 frame_target_time_ms = 31;
+        if (frame_time_ms < frame_target_time_ms) {
+            SDL_Delay(frame_target_time_ms - frame_time_ms);
+        }
     }
 
     return 0;

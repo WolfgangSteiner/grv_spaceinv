@@ -5,7 +5,6 @@
 #include "grv/grv_vec2_fixed32.h"
 #include "grv/grv_rect_fixed32.h"
 #include "grv_gfx/grv_spritesheet8.h"
-#include <dlfcn.h>
 
 typedef enum {
     GRVGM_BUTTON_CODE_LEFT  = 0,
