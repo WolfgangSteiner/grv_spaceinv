@@ -403,6 +403,7 @@ int grvgm_main(int argc, char** argv) {
                     grv_free(_grvgm_state.game_state);
                 }
                 _grvgm_state.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
+                _grvgm_reset_game_state_store();
             }
         }
 
