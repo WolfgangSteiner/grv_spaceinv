@@ -13,7 +13,6 @@ char* player_sprite_data =
 
 
 void player_create_shot(spaceinv_state_t* state, grv_vec2_fixed32_t pos) {
-    scene_t* scene = &state->scene;
     if (state->shot_arr.size < state->shot_arr.capacity) {
         shot_t* shot = &state->shot_arr.arr[state->shot_arr.size++];
         shot->pos = pos;

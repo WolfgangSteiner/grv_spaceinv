@@ -137,6 +137,7 @@ void check_collision(scene_t* scene, entity_t* player) {
 }
 
 void explosion_effect_update(particle_effect_t* e, grv_fixed32_t delta_t) {
+    GRV_UNUSED(delta_t);
     // generate new particles
     if ((grv_fixed32_ge(grvgm_timediff(e->timestamp), e->generation_rate) 
             && e->particles.size < e->max_num_particles) 

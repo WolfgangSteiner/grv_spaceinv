@@ -30,7 +30,7 @@ typedef struct {
     struct {
         size_t capacity;
         size_t size;
-        void* data;
+        u8* data;
     } game_state_store;
 } grvgm_state_t;
 
@@ -76,7 +76,7 @@ int _grvgm_load_game_code(char* path) {
 //==============================================================================
 // Keyboard and button state
 //=============================================================ago=================
-bool _grvgm_is_key_down(int scancode) {
+bool _grvgm_is_sdl_key_down(int scancode) {
     if (_grvgm_current_keyboard_state == NULL) return false;
     return _grvgm_current_keyboard_state[scancode] != 0;
 }
@@ -84,21 +84,21 @@ bool _grvgm_is_key_down(int scancode) {
 bool grvgm_is_button_down(grvgm_button_code_t button_code) {
     switch (button_code) {
         case GRVGM_BUTTON_CODE_LEFT:
-            return _grvgm_is_key_down(SDL_SCANCODE_LEFT) || _grvgm_is_key_down(SDL_SCANCODE_H);
+            return _grvgm_is_sdl_key_down(SDL_SCANCODE_LEFT) || _grvgm_is_sdl_key_down(SDL_SCANCODE_H);
         case GRVGM_BUTTON_CODE_RIGHT:
-            return _grvgm_is_key_down(SDL_SCANCODE_RIGHT) || _grvgm_is_key_down(SDL_SCANCODE_L);
+            return _grvgm_is_sdl_key_down(SDL_SCANCODE_RIGHT) || _grvgm_is_sdl_key_down(SDL_SCANCODE_L);
         case GRVGM_BUTTON_CODE_UP:
-            return _grvgm_is_key_down(SDL_SCANCODE_UP) || _grvgm_is_key_down(SDL_SCANCODE_K);
+            return _grvgm_is_sdl_key_down(SDL_SCANCODE_UP) || _grvgm_is_sdl_key_down(SDL_SCANCODE_K);
         case GRVGM_BUTTON_CODE_DOWN:
-            return _grvgm_is_key_down(SDL_SCANCODE_DOWN) || _grvgm_is_key_down(SDL_SCANCODE_J);
+            return _grvgm_is_sdl_key_down(SDL_SCANCODE_DOWN) || _grvgm_is_sdl_key_down(SDL_SCANCODE_J);
         case GRVGM_BUTTON_CODE_A:
-            return _grvgm_is_key_down(SDL_SCANCODE_F);
+            return _grvgm_is_sdl_key_down(SDL_SCANCODE_F);
         case GRVGM_BUTTON_CODE_B:
-            return _grvgm_is_key_down(SDL_SCANCODE_D);
+            return _grvgm_is_sdl_key_down(SDL_SCANCODE_D);
         case GRVGM_BUTTON_CODE_X:
-            return _grvgm_is_key_down(SDL_SCANCODE_S);
+            return _grvgm_is_sdl_key_down(SDL_SCANCODE_S);
         case GRVGM_BUTTON_CODE_Y:
-            return _grvgm_is_key_down(SDL_SCANCODE_A);
+            return _grvgm_is_sdl_key_down(SDL_SCANCODE_A);
         default:
             return false;
     }
@@ -120,10 +120,8 @@ void grvgm_poll_keyboard(void) {
 }
 
 int _grvgm_char_to_sdl_scancode(char key) {
+    if (key >= 'a' && key <= 'z') return SDL_SCANCODE_A + (key - 'a');
     switch(key) {
-        case 'n': return SDL_SCANCODE_N;
-        case 'p': return SDL_SCANCODE_P;
-        case 'r': return SDL_SCANCODE_R;
         default: return -1;
     }
 }
@@ -132,6 +130,12 @@ bool grvgm_was_key_pressed(char key) {
     int scancode = _grvgm_char_to_sdl_scancode(key);
     if (scancode < 0) return false;
     return _grvgm_previous_keyboard_state[scancode] == 0 && _grvgm_current_keyboard_state[scancode] != 0;
+}
+
+bool grvgm_is_key_down(char key) {
+    int scancode = _grvgm_char_to_sdl_scancode(key);
+    if (scancode < 0) return false;
+    return _grvgm_current_keyboard_state[scancode] != 0;
 }
 
 bool grvgm_is_keymod_down(grvgm_keymod_t keymod) {
@@ -326,7 +330,7 @@ void _grvgm_init(void) {
     _grvgm_state.game_state_store.data = grv_alloc(_grvgm_state.game_state_store.capacity);
 } 
 
-void _grvgm_push_game_state() {
+void _grvgm_push_game_state(void) {
     size_t element_size = _grvgm_state.game_state_size + sizeof(grvgm_frame_info_t);
     size_t current_size = _grvgm_state.game_state_store.size * element_size;
     size_t new_size = current_size + element_size;
@@ -336,7 +340,7 @@ void _grvgm_push_game_state() {
             _grvgm_state.game_state_store.data,
             _grvgm_state.game_state_store.capacity);
     }
-    void* dst = _grvgm_state.game_state_store.data + current_size;
+    u8* dst = _grvgm_state.game_state_store.data + current_size;
     grvgm_frame_info_t frame_info = {
         .frame_index=_grvgm_state.frame_index,
         .game_time_ms=_grvgm_state.game_time_ms
@@ -352,7 +356,7 @@ void _grvgm_pop_game_state(u64 count) {
     if (num_states == 0) return;
     u64 new_frame_index = num_states < count ? 0 : num_states - count;
     size_t element_size = _grvgm_state.game_state_size + sizeof(grvgm_frame_info_t);
-    void* src = _grvgm_state.game_state_store.data + new_frame_index * element_size;
+    u8* src = _grvgm_state.game_state_store.data + new_frame_index * element_size;
     grvgm_frame_info_t frame_info = *(grvgm_frame_info_t*)src;
     src += sizeof(grvgm_frame_info_t);
     grv_memcpy(_grvgm_state.game_state, src, _grvgm_state.game_state_size);
@@ -361,7 +365,7 @@ void _grvgm_pop_game_state(u64 count) {
     _grvgm_state.game_state_store.size = new_frame_index + 1;
 }
 
-void _grvgm_reset_game_state_store() {
+void _grvgm_reset_game_state_store(void) {
     _grvgm_state.game_state_store.size = 0;
 }
 
@@ -382,6 +386,7 @@ int grvgm_main(int argc, char** argv) {
     grv_framebuffer_t* fb = &w->framebuffer;
 
     bool first_iteration = true;
+    bool pause_has_been_activated = false;
 
     while (true) {
         u64 frame_start_time_ms = SDL_GetTicks64();
@@ -403,13 +408,14 @@ int grvgm_main(int argc, char** argv) {
 
         if (grvgm_was_key_pressed('p') && grvgm_is_keymod_down(GRVGM_KEYMOD_CTRL)) {
             pause = !pause;
+            if (pause) pause_has_been_activated = true;
+        } else if (!grvgm_is_key_down('p') && pause_has_been_activated) {
+            pause_has_been_activated = false;
         }
 
         if (_grvgm_state.window->should_close) {
             break;
         }
-
-        const u64 current_timestamp = SDL_GetTicks64();
 
         if (first_iteration) {
             first_iteration = false;
@@ -423,8 +429,19 @@ int grvgm_main(int argc, char** argv) {
             f32 delta_time = (f32)delta_timestamp_ms / 1000.0f; 
             _grvgm_state.on_update(_grvgm_state.game_state, delta_time);
             _grvgm_push_game_state();
-        } else if (pause == true && grvgm_was_key_pressed('p')) {
-            _grvgm_pop_game_state(2);
+        } else if (pause == true && !pause_has_been_activated && grvgm_is_key_down('p')) {
+            i32 frames_to_rewind = grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT) ? 4 : 2;
+            _grvgm_pop_game_state(frames_to_rewind);
+        } else if (pause == true && grvgm_was_key_pressed('s')) {
+            FILE* file = fopen("/tmp/game_state.dat", "wb");
+            fwrite(
+                _grvgm_state.game_state_store.data,
+                _grvgm_state.game_state_size + sizeof(grvgm_frame_info_t),
+                _grvgm_state.game_state_store.size,
+                file
+            );
+            fclose(file);
+            printf("[INFO] Game state has been saved.\n");
         }
 
         _grvgm_state.on_draw(_grvgm_state.game_state);
