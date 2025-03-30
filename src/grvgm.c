@@ -92,7 +92,7 @@ bool grvgm_is_button_down(grvgm_button_code_t button_code) {
         case GRVGM_BUTTON_CODE_DOWN:
             return _grvgm_is_sdl_key_down(SDL_SCANCODE_DOWN) || _grvgm_is_sdl_key_down(SDL_SCANCODE_J);
         case GRVGM_BUTTON_CODE_A:
-            return _grvgm_is_sdl_key_down(SDL_SCANCODE_F);
+            return _grvgm_is_sdl_key_down(SDL_SCANCODE_F) || _grvgm_is_sdl_key_down(SDL_SCANCODE_SPACE);
         case GRVGM_BUTTON_CODE_B:
             return _grvgm_is_sdl_key_down(SDL_SCANCODE_D);
         case GRVGM_BUTTON_CODE_X:
