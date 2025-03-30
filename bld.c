@@ -25,6 +25,7 @@ int main(int argc, char** argv) {
     grvbld_target_t* lib_grvgm = grvbld_target_create_dynamic_library("grvgm");
     grvbld_target_add_src(lib_grvgm, "src/grvgm.c");
     grvbld_target_add_src(lib_grvgm, "src/grv/grv_gfx/grv_spritesheet8.c");
+    grvbld_target_add_src(lib_grvgm, "src/grvgm_small_font.c");
     //grvbld_target_link_libraries(lib_grvgm, "grv", "grvgfx");
     grvbld_build_target(config, lib_grvgm);
 

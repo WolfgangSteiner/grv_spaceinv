@@ -211,6 +211,9 @@ void on_update(void* game_state, f32 delta_time) {
 void on_draw(void* game_state) {
     spaceinv_state_t* state = game_state;
     grvgm_clear_screen(3);
+    grvgm_draw_text(grv_str_ref("0123456789:;<=>?"), grv_vec2_fixed32_from_i32(1, 1), 7);
+    grvgm_draw_text(grv_str_ref("@ABCDEFGHIJKLMNO"), grv_vec2_fixed32_from_i32(1, 7), 7);
+    grvgm_draw_text(grv_str_ref("PQRSTUVWXYZ"), grv_vec2_fixed32_from_i32(1, 13), 7);
     scene_draw(&state->scene);
     entity_draw(&state->player);
     shots_draw(state);

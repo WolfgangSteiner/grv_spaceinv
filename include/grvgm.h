@@ -52,6 +52,7 @@ void grvgm_draw_pixel(grv_vec2_fixed32_t pos, u8 color);
 void grvgm_draw_rect(grv_rect_fixed32_t rect, u8 color);
 void grvgm_draw_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color);
 void grvgm_fill_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color);
+void grvgm_draw_text(grv_str_t text, grv_vec2_fixed32_t pos, u8 color);
 grv_vec2_fixed32_t grvgm_screen_size(void);
 
 // get the current game time

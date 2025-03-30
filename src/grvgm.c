@@ -5,6 +5,7 @@
 #include "grv_gfx/grv_framebuffer.h"
 #include "grv_gfx/grv_img8.h"
 #include "grv_gfx/grv_spritesheet8.h"
+#include "grvgm_small_font.h"
 #include <SDL2/SDL.h>
 
 typedef void (*grvgm_on_init_func)(void**, size_t*);
@@ -34,6 +35,7 @@ typedef struct {
     } game_state_store;
     struct {
         bool show_frame_time;
+        i32 fps;
     } options;
 } grvgm_state_t;
 
@@ -42,7 +44,7 @@ typedef struct {
     u64 game_time_ms;
 } grvgm_frame_info_t;
 
-static grvgm_state_t _grvgm_state = {0};
+static grvgm_state_t _grvgm_state = {.options.fps=60};
 char* _grv_spritesheet_file_path = "assets/spritesheet.bmp";
 static u8* _grvgm_previous_keyboard_state = NULL;
 static u8* _grvgm_current_keyboard_state = NULL;
@@ -346,7 +348,7 @@ void _grvgm_init(void) {
     w->borderless = true;
     w->resizable = true;
     grv_window_show(w);
-    _grvgm_state.font = grv_get_cozette_font();
+    _grvgm_state.font = grvgm_get_small_font();
     _grvgm_state.game_state_store.capacity = 1024ull*1024ull*1024ull;
     _grvgm_state.game_state_store.size = 0;
     _grvgm_state.game_state_store.data = grv_alloc(_grvgm_state.game_state_store.capacity);
@@ -391,23 +393,45 @@ void _grvgm_reset_game_state_store(void) {
     _grvgm_state.game_state_store.size = 0;
 }
 
+i32 _grvgm_target_frame_time_ms(void) {
+    i32 fps = _grvgm_state.options.fps;
+    u64 frame_index = _grvgm_state.frame_index;
+    if (fps == 30) {
+        return frame_index % 3 == 0 ? 34 : 33;
+    } else if (fps == 32) {
+        return frame_index % 4 == 0 ? 32 : 31;
+    } else if (fps == 60) {
+        return frame_index % 3 ? 16 : 17;
+    } else {
+        return 1000 / fps;
+    }
+}
 
 void _grvgm_draw_frame_time(i32 frame_time_ms) {
-    char fps_string[16];
-    snprintf(fps_string, 16, "%2d", (int)frame_time_ms);
-    grvgm_draw_text(grv_str_ref(fps_string), grv_vec2_fixed32_from_i32(114,1), 7);
+    char frame_time_string[16];
+    snprintf(frame_time_string, 16, "%2d", frame_time_ms);
+    grvgm_draw_text(grv_str_ref(frame_time_string), grv_vec2_fixed32_from_i32(114,1), 7);
 }
 
 void _grvgm_parse_command_line(int argc, char** argv) {
     grv_strarr_t args = grv_strarr_new_from_cstrarr(argv, argc);
-    for (i32 i = 1; i < args.size; i++) {
+    i32 i = 1;
+    while (i < args.size) {
         grv_str_t arg = *grv_strarr_at(args, i);
         if (grv_str_eq_cstr(arg, "--show-frame-time")) {
             _grvgm_state.options.show_frame_time = true;
+        } else if (grv_str_starts_with_cstr(arg, "--fps=")) {
+            grv_str_t fps_str = grv_str_split_tail_at_char(arg, '=');
+            if (!grv_str_is_int(fps_str)) {
+                grv_str_t error_msg = grv_str_format_cstr("Invalid syntax: {str}", arg);
+                grv_exit(error_msg);
+            }
+            _grvgm_state.options.fps = grv_min_i32(grv_str_to_int(fps_str), 60);
         } else {
-            grv_str_t error_msg = grv_str_format(grv_str_ref("Unknown option {str}"), arg);
+            grv_str_t error_msg = grv_str_format_cstr("Unknown option {str}", arg);
             grv_exit(error_msg);
         }
+        i++;
     }
 }
 
@@ -421,7 +445,7 @@ int grvgm_main(int argc, char** argv) {
     _grvgm_state.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
     printf("[INFO] game_state_size: %d (%.2fk/s)\n",
            (int)_grvgm_state.game_state_size,
-           (f32)_grvgm_state.game_state_size*32.0f/1024.0f);
+           (f32)_grvgm_state.game_state_size * _grvgm_state.options.fps / 1024.0f);
     //u64 last_timestamp = SDL_GetTicks64();
     bool pause = true;
     bool show_debug_ui = false;
@@ -431,6 +455,7 @@ int grvgm_main(int argc, char** argv) {
 
     bool first_iteration = true;
     bool pause_has_been_activated = false;
+    u64 last_frame_time_ms = 0;
 
     while (true) {
         u64 frame_start_time_ms = SDL_GetTicks64();
@@ -468,10 +493,9 @@ int grvgm_main(int argc, char** argv) {
             _grvgm_state.on_update(_grvgm_state.game_state, 0.0f);
             _grvgm_push_game_state();
         } else if (pause == false || grvgm_was_key_pressed('n')) {
-            const u64 delta_timestamp_ms = _grvgm_state.frame_index % 4 == 0 ? 32 : 31; 
-            _grvgm_state.game_time_ms += delta_timestamp_ms;
             _grvgm_state.frame_index++;
-            f32 delta_time = (f32)delta_timestamp_ms / 1000.0f; 
+            _grvgm_state.game_time_ms += _grvgm_target_frame_time_ms();
+            f32 delta_time = 1.0f/ (f32)_grvgm_state.options.fps; 
             _grvgm_state.on_update(_grvgm_state.game_state, delta_time);
             _grvgm_push_game_state();
         } else if (pause == true && !pause_has_been_activated && grvgm_is_key_down('p')) {
@@ -500,10 +524,13 @@ int grvgm_main(int argc, char** argv) {
         if (_grvgm_state.options.show_frame_time) _grvgm_draw_frame_time(frame_time_ms);
 
         grv_window_present(w);
+
+        u64 target_frame_time_ms = _grvgm_target_frame_time_ms();
+        frame_end_time_ms = SDL_GetTicks64();
+        frame_time_ms = frame_end_time_ms - frame_start_time_ms;
         
-        u64 frame_target_time_ms = 31;
-        if (frame_time_ms < frame_target_time_ms) {
-            SDL_Delay(frame_target_time_ms - frame_time_ms);
+        if (frame_time_ms < target_frame_time_ms) {
+            SDL_Delay(target_frame_time_ms - frame_time_ms);
         }
     }
 
