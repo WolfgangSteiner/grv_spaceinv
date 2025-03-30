@@ -32,6 +32,9 @@ typedef struct {
         size_t size;
         u8* data;
     } game_state_store;
+    struct {
+        bool show_frame_time;
+    } options;
 } grvgm_state_t;
 
 typedef struct {
@@ -43,6 +46,12 @@ static grvgm_state_t _grvgm_state = {0};
 char* _grv_spritesheet_file_path = "assets/spritesheet.bmp";
 static u8* _grvgm_previous_keyboard_state = NULL;
 static u8* _grvgm_current_keyboard_state = NULL;
+
+
+grv_framebuffer_t* _grvgm_framebuffer(void) {
+    return &_grvgm_state.window->framebuffer;
+}
+
 //==============================================================================
 // hot-loading of game code
 //==============================================================================
@@ -277,6 +286,19 @@ grv_fixed32_t grvgm_timediff(grv_fixed32_t timestamp) {
     return grv_fixed32_sub(grvgm_time(), timestamp);
 }
 
+void grvgm_draw_text(grv_str_t text, grv_vec2_fixed32_t pos, u8 color) {
+    grv_put_text_u8(
+        _grvgm_framebuffer(),
+        text,
+        grv_vec2_fixed32_round(pos),
+        _grvgm_state.font,
+        color
+    );
+}
+
+//==============================================================================
+// spritesheet hot loading
+//==============================================================================
 u64 _grvgm_spritesheet_mod_time(void) {
     grv_u64_result_t result = grv_fs_file_mod_time(grv_str_ref(_grv_spritesheet_file_path));
     if (!result.valid) {
@@ -369,9 +391,31 @@ void _grvgm_reset_game_state_store(void) {
     _grvgm_state.game_state_store.size = 0;
 }
 
+
+void _grvgm_draw_frame_time(i32 frame_time_ms) {
+    char fps_string[16];
+    snprintf(fps_string, 16, "%2d", (int)frame_time_ms);
+    grvgm_draw_text(grv_str_ref(fps_string), grv_vec2_fixed32_from_i32(114,1), 7);
+}
+
+void _grvgm_parse_command_line(int argc, char** argv) {
+    grv_strarr_t args = grv_strarr_new_from_cstrarr(argv, argc);
+    for (i32 i = 1; i < args.size; i++) {
+        grv_str_t arg = *grv_strarr_at(args, i);
+        if (grv_str_eq_cstr(arg, "--show-frame-time")) {
+            _grvgm_state.options.show_frame_time = true;
+        } else {
+            grv_str_t error_msg = grv_str_format(grv_str_ref("Unknown option {str}"), arg);
+            grv_exit(error_msg);
+        }
+    }
+}
+
 int grvgm_main(int argc, char** argv) {
     GRV_UNUSED(argc);
     GRV_UNUSED(argv);
+
+    _grvgm_parse_command_line(argc, argv);
 
     _grvgm_init();
     _grvgm_state.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
@@ -451,11 +495,12 @@ int grvgm_main(int argc, char** argv) {
             grvgm_draw_button_state(fb);
         }
 
-        grv_window_present(w);
-
-
         u64 frame_end_time_ms = SDL_GetTicks64();
         u64 frame_time_ms = frame_end_time_ms - frame_start_time_ms;
+        if (_grvgm_state.options.show_frame_time) _grvgm_draw_frame_time(frame_time_ms);
+
+        grv_window_present(w);
+        
         u64 frame_target_time_ms = 31;
         if (frame_time_ms < frame_target_time_ms) {
             SDL_Delay(frame_target_time_ms - frame_time_ms);
