@@ -280,6 +280,14 @@ grv_vec2_fixed32_t grvgm_screen_size(void) {
     return grv_vec2_fixed32_from_i32(w, h);
 }
 
+grv_rect_fixed32_t grvgm_screen_rect(void) {
+    return (grv_rect_fixed32_t) {
+        .x=0, .y=0,
+        .w=grv_fixed32_from_i32(_grvgm_framebuffer()->width),
+        .h=grv_fixed32_from_i32(_grvgm_framebuffer()->height)
+    };
+}
+
 grv_fixed32_t grvgm_time(void) {
     return (grv_fixed32_t){.val = (i32)(_grvgm_state.game_time_ms * 1024 / 1000)};
 }
