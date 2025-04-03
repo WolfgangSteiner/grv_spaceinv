@@ -2,8 +2,8 @@
 #define GRVGM_H
 
 #include "grv_gfx/grv_window.h"
-#include "grv/grv_vec2_fixed32.h"
-#include "grv/grv_rect_fixed32.h"
+#include "grv/vec2_fx32.h"
+#include "grv_gfx/rect_fx32.h"
 #include "grv_gfx/grv_spritesheet8.h"
 
 typedef enum {
@@ -39,7 +39,7 @@ extern void on_draw(void);
 #endif
 
 typedef struct {
-    grv_vec2_fixed32_t pos;
+    vec2_fx32 pos;
     i32 index;
     bool flip_x, flip_y;
     grv_spritesheet8_t* spritesheet;
@@ -48,17 +48,17 @@ typedef struct {
 bool grvgm_is_button_down(grvgm_button_code_t button_code);
 void grvgm_clear_screen(u8 color);
 void grvgm_draw_sprite(grvgm_sprite_t sprite);
-void grvgm_draw_pixel(grv_vec2_fixed32_t pos, u8 color);
-void grvgm_draw_rect(grv_rect_fixed32_t rect, u8 color);
-void grvgm_draw_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color);
-void grvgm_fill_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color);
-void grvgm_draw_text(grv_str_t text, grv_vec2_fixed32_t pos, u8 color);
-grv_vec2_fixed32_t grvgm_screen_size(void);
-grv_rect_fixed32_t grvgm_screen_rect(void);
+void grvgm_draw_pixel(vec2_fx32 pos, u8 color);
+void grvgm_draw_rect(rect_fx32 rect, u8 color);
+void grvgm_draw_circle(vec2_fx32 pos, fx32 r, u8 color);
+void grvgm_fill_circle(vec2_fx32 pos, fx32 r, u8 color);
+void grvgm_draw_text(grv_str_t text, vec2_fx32 pos, u8 color);
+vec2_fx32 grvgm_screen_size(void);
+rect_fx32 grvgm_screen_rect(void);
 
 // get the current game time
-grv_fixed32_t grvgm_time(void);
+fx32 grvgm_time(void);
 
 // compute time difference between a timestamp and the current time
-grv_fixed32_t grvgm_timediff(grv_fixed32_t timestamp);
+fx32 grvgm_timediff(fx32 timestamp);
 #endif

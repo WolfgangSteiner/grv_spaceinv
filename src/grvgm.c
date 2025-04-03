@@ -212,7 +212,7 @@ void grvgm_draw_button_state(grv_framebuffer_t* fb) {
 	i32 x = 0;
 	i32 y = 0;
 	i32 w = 8;
-	grv_framebuffer_fill_rect_u8(fb, (recti_t){x,y,4*w,w}, 0);
+	grv_framebuffer_fill_rect_u8(fb, (rect_i32){x,y,4*w,w}, 0);
 	grv_framebuffer_blit_img8(fb, &spr_left, x, y);
 	grv_framebuffer_blit_img8(fb, &spr_right, x + w, y);
 	grv_framebuffer_blit_img8(fb, &spr_up, x + 2*w, y);
@@ -232,75 +232,69 @@ void grvgm_draw_sprite(grvgm_sprite_t sprite) {
 	grv_framebuffer_blit_img8(
 		&_grvgm_state.window->framebuffer,
 		&img,
-		grv_fixed32_round(sprite.pos.x),
-		grv_fixed32_round(sprite.pos.y)
+		fx32_round(sprite.pos.x),
+		fx32_round(sprite.pos.y)
 	);
 }
 
-void grvgm_draw_pixel(grv_vec2_fixed32_t pos, u8 color) {
+void grvgm_draw_pixel(vec2_fx32 pos, u8 color) {
 	grv_framebuffer_set_pixel_u8(
 		&_grvgm_state.window->framebuffer,
-		vec2i_make(grv_fixed32_round(pos.x), grv_fixed32_round(pos.y)),
+		vec2i_make(fx32_round(pos.x), fx32_round(pos.y)),
 		color
 	);
 }
 
-void grvgm_draw_rect(grv_rect_fixed32_t rect, u8 color) {
-	recti_t r = {
-		.x=grv_fixed32_round(rect.x),
-		.y=grv_fixed32_round(rect.y),
-		.w=grv_fixed32_round(rect.w),
-		.h=grv_fixed32_round(rect.h)
-	};
-	grv_framebuffer_draw_rect_u8(&_grvgm_state.window->framebuffer, r, color);
+void grvgm_draw_rect(rect_fx32 rect, u8 color) {
+	grv_framebuffer_draw_rect_u8(&_grvgm_state.window->framebuffer, rect_fx32_round(rect), color);
 }
 
-void grvgm_draw_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color) {
+void grvgm_draw_circle(vec2_fx32 pos, fx32 r, u8 color) {
 	grv_framebuffer_draw_circle_u8(
 		&_grvgm_state.window->framebuffer, 
-		grv_fixed32_round(pos.x),
-		grv_fixed32_round(pos.y),
-		grv_fixed32_round(r),
+		fx32_round(pos.x),
+		fx32_round(pos.y),
+		fx32_round(r),
 		color);
 }
 
-void grvgm_fill_circle(grv_vec2_fixed32_t pos, grv_fixed32_t r, u8 color) {
+void grvgm_fill_circle(vec2_fx32 pos, fx32 r, u8 color) {
 	grv_framebuffer_fill_circle_u8(
 		&_grvgm_state.window->framebuffer, 
-		grv_fixed32_round(pos.x),
-		grv_fixed32_round(pos.y),
-		grv_fixed32_round(r),
+		fx32_round(pos.x),
+		fx32_round(pos.y),
+		fx32_round(r),
 		color);
 }
 
 
-grv_vec2_fixed32_t grvgm_screen_size(void) {
+vec2_fx32 grvgm_screen_size(void) {
 	i32 w = _grvgm_state.window->framebuffer.width;
 	i32 h = _grvgm_state.window->framebuffer.height;
-	return grv_vec2_fixed32_from_i32(w, h);
+	return vec2_fx32_from_i32(w, h);
 }
 
-grv_rect_fixed32_t grvgm_screen_rect(void) {
-	return (grv_rect_fixed32_t) {
+rect_fx32 grvgm_screen_rect(void) {
+	return (rect_fx32) {
 		.x=0, .y=0,
-		.w=grv_fixed32_from_i32(_grvgm_framebuffer()->width),
-		.h=grv_fixed32_from_i32(_grvgm_framebuffer()->height)
+		.w=fx32_from_i32(_grvgm_framebuffer()->width),
+		.h=fx32_from_i32(_grvgm_framebuffer()->height)
 	};
 }
 
-grv_fixed32_t grvgm_time(void) {
-	return (grv_fixed32_t){.val = (i32)(_grvgm_state.game_time_ms * 1024 / 1000)};
+fx32 grvgm_time(void) {
+	return (fx32){.val = (i32)(_grvgm_state.game_time_ms * 1024 / 1000)};
 }
 
-grv_fixed32_t grvgm_timediff(grv_fixed32_t timestamp) {
-	return grv_fixed32_sub(grvgm_time(), timestamp);
+fx32 grvgm_timediff(fx32 timestamp) {
+	return fx32_sub(grvgm_time(), timestamp);
 }
 
-void grvgm_draw_text(grv_str_t text, grv_vec2_fixed32_t pos, u8 color) {
+void grvgm_draw_text(grv_str_t text, vec2_fx32 pos, u8 color) {
 	grv_put_text_u8(
 		_grvgm_framebuffer(),
 		text,
-		grv_vec2_fixed32_round(pos),
+		vec2_fx32_round(pos),
 		_grvgm_state.font,
 		color
 	);
@@ -418,7 +412,7 @@ i32 _grvgm_target_frame_time_ms(void) {
 void _grvgm_draw_frame_time(i32 frame_time_ms) {
 	char frame_time_string[16];
 	snprintf(frame_time_string, 16, "%2d", frame_time_ms);
-	grvgm_draw_text(grv_str_ref(frame_time_string), grv_vec2_fixed32_from_i32(114,1), 7);
+	grvgm_draw_text(grv_str_ref(frame_time_string), vec2_fx32_from_i32(114,1), 7);
 }
 
 void _grvgm_parse_command_line(int argc, char** argv) {

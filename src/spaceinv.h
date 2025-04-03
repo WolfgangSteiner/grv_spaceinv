@@ -34,22 +34,22 @@ typedef enum {
 } player_state_t;
 
 typedef struct {
-    grv_fixed32_t last_shot_timestamp;
-    grv_fixed32_t shot_delay;
+    fx32 last_shot_timestamp;
+    fx32 shot_delay;
     player_state_t state;
-    grv_fixed32_t state_start_time;
+    fx32 state_start_time;
 } player_data_t;
 
 typedef struct {
-    grv_fixed32_t max_displacement;
+    fx32 max_displacement;
 } alien_claw_data_t;
 
 typedef struct entity_s {
     entity_type_t entity_type;
     grvgm_sprite_t sprite;
-    grv_vec2_fixed32_t start_pos;
-    grv_vec2_fixed32_t vel;
-    grv_rect_fixed32_t bounding_box;
+    vec2_fx32 start_pos;
+    vec2_fx32 vel;
+    rect_fx32 bounding_box;
     bool is_alive;
     union {
         player_data_t player;
@@ -61,8 +61,8 @@ typedef struct entity_s {
 // shot
 //==============================================================================
 typedef struct {
-    grv_vec2_fixed32_t pos;
-    grv_vec2_fixed32_t vel;
+    vec2_fx32 pos;
+    vec2_fx32 vel;
 } shot_t;
 
 //==============================================================================
@@ -80,16 +80,16 @@ typedef struct {
 // particle effect
 //==============================================================================
 typedef struct {
-    grv_vec2_fixed32_t pos;
-    grv_fixed32_t params[4];
+    vec2_fx32 pos;
+    fx32 params[4];
 } particle_t;
 
 #define MAX_NUM_PARTICLES 32
 #define MAX_NUM_EFFECTS 32
 
 typedef struct {
-    grv_fixed32_t timestamp;
-    grv_fixed32_t generation_rate;
+    fx32 timestamp;
+    fx32 generation_rate;
     i32 max_num_particles;
     struct {
         i32 size;
