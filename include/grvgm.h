@@ -39,7 +39,6 @@ extern void on_draw(void);
 #endif
 
 typedef struct {
-    vec2_fx32 pos;
     i32 index;
     i32 w,h;
     bool flip_x, flip_y;
@@ -57,17 +56,28 @@ bool grvgm_was_button_pressed(grvgm_button_code_t button_code);
 // drawing api
 //==============================================================================
 void grvgm_clear_screen(u8 color);
-void grvgm_draw_sprite(grvgm_sprite_t sprite);
-void grvgm_draw_pixel(vec2_fx32 pos, u8 color);
-void grvgm_draw_rect(rect_fx32 rect, u8 color);
-void grvgm_fill_rect(rect_fx32 rect, u8 color);
-void grvgm_draw_rect_chamfered(rect_fx32 rect, u8 color);
-void grvgm_fill_rect_chamfered(rect_fx32 rect, u8 color);
-void grvgm_draw_circle(vec2_fx32 pos, fx32 r, u8 color);
-void grvgm_fill_circle(vec2_fx32 pos, fx32 r, u8 color);
-void grvgm_draw_text(grv_str_t text, vec2_fx32 pos, u8 color);
-void grvgm_draw_text_aligned(grv_str_t text, rect_fx32 rect, grv_alignment_t alignment, u8 color);
 
+void grvgm_draw_sprite(vec2_i32 pos, grvgm_sprite_t sprite);
+void grvgm_draw_pixel(vec2_i32 pos, u8 color);
+void grvgm_draw_rect(rect_i32 rect, u8 color);
+void grvgm_fill_rect(rect_i32 rect, u8 color);
+void grvgm_draw_rect_chamfered(rect_i32 rect, u8 color);
+void grvgm_fill_rect_chamfered(rect_i32 rect, u8 color);
+void grvgm_draw_circle(vec2_i32 pos, i32 r, u8 color);
+void grvgm_fill_circle(vec2_i32 pos, i32 r, u8 color);
+void grvgm_draw_text(vec2_i32 pos, grv_str_t text, u8 color);
+void grvgm_draw_text_aligned(rect_i32 rect, grv_str_t text, grv_alignment_t alignment, u8 color);
+
+void grvgm_draw_sprite_fx32(vec2_fx32 pos, grvgm_sprite_t sprite);
+void grvgm_draw_pixel_fx32(vec2_fx32 pos, u8 color);
+void grvgm_draw_rect_fx32(rect_fx32 rect, u8 color);
+void grvgm_fill_rect_fx32(rect_fx32 rect, u8 color);
+void grvgm_draw_rect_chamfered_fx32(rect_fx32 rect, u8 color);
+void grvgm_fill_rect_chamfered_fx32(rect_fx32 rect, u8 color);
+void grvgm_draw_circle_fx32(vec2_fx32 pos, fx32 r, u8 color);
+void grvgm_fill_circle_fx32(vec2_fx32 pos, fx32 r, u8 color);
+void grvgm_draw_text_fx32(vec2_fx32 pos, grv_str_t text, u8 color);
+void grvgm_draw_text_aligned_fx32(rect_fx32 retct, grv_str_t text, grv_alignment_t alignment, u8 color);
 //==============================================================================
 // math
 //==============================================================================
@@ -77,18 +87,22 @@ fx32 grvgm_cos(fx32 x);
 //==============================================================================
 // text
 //==============================================================================
-rect_fx32 grvgm_text_rect(grv_str_t str);
+rect_i32 grvgm_text_rect(grv_str_t str);
 
 //==============================================================================
 // mouse
 //==============================================================================
-vec2_fx32 grvgm_mouse_position(void);
+vec2_i32 grvgm_mouse_position(void);
+vec2_fx32 grvgm_mouse_position_fx32(void);
 
 //==============================================================================
 // misc
 //==============================================================================
-vec2_fx32 grvgm_screen_size(void);
-rect_fx32 grvgm_screen_rect(void);
+vec2_fx32 grvgm_screen_size_fx32(void);
+rect_fx32 grvgm_screen_rect_fx32(void);
+
+vec2_i32 grvgm_screen_size(void);
+rect_i32 grvgm_screen_rect(void);
 
 // get the current game time
 fx32 grvgm_time(void);

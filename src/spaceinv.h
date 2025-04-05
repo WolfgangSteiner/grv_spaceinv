@@ -49,6 +49,7 @@ typedef struct entity_s {
     entity_type_t entity_type;
     grvgm_sprite_t sprite;
     vec2_fx32 start_pos;
+	vec2_fx32 pos;
     vec2_fx32 vel;
     rect_fx32 bounding_box;
     bool is_alive;

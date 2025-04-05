@@ -1,19 +1,19 @@
 void alien_entity_update(entity_t* entity, fx32 delta_t) {
-	fx32 new_x = fx32_mula(entity->vel.x, delta_t, entity->sprite.pos.x);
+	fx32 new_x = fx32_mula(entity->vel.x, delta_t, entity->pos.x);
 	fx32 displacement = fx32_abs(fx32_sub(new_x, entity->start_pos.x));
 
 	if (fx32_ge(displacement, entity->alien_claw.max_displacement)) {
 		entity->vel.x = fx32_neg(entity->vel.x);
-		i32 sign = fx32_gt(entity->sprite.pos.x, entity->start_pos.x) ? 1 : -1;
-		entity->sprite.pos.x = fx32_mula(
+		i32 sign = fx32_gt(entity->pos.x, entity->start_pos.x) ? 1 : -1;
+		entity->pos.x = fx32_mula(
 			entity->alien_claw.max_displacement,
 			fx32_from_i32(sign),
 			entity->start_pos.x);
-		entity->sprite.pos.y = fx32_add(
-			entity->sprite.pos.y,
+		entity->pos.y = fx32_add(
+			entity->pos.y,
 			entity->vel.y);
 	} else {
-		entity->sprite.pos.x = new_x;
+		entity->pos.x = new_x;
 	}
 }
 
@@ -21,9 +21,9 @@ void alien_entity_create(entity_t* entity, vec2_fx32 pos, i32 direction) {
 	*entity = (entity_t) {
 		.entity_type = ENTITY_TYPE_CLAW,
 		.sprite = {
-			.pos=pos,
 			.index=16,
 		},
+		.pos=pos,
 		.vel = vec2_fx32_from_i32(20 * direction, 4),
 		.bounding_box = {.w=fx32_from_i32(7), .h=fx32_from_i32(8)},
 		.is_alive = true,

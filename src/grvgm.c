@@ -285,115 +285,6 @@ void grvgm_draw_button_state(grv_framebuffer_t* fb) {
 }
 	
 //==============================================================================
-// api
-//==============================================================================
-void grvgm_clear_screen(u8 color) {
-	grv_framebuffer_fill_u8(_grvgm_state.framebuffer, color);
-} 
-
-void grvgm_draw_sprite(grvgm_sprite_t sprite) {
-	grv_spritesheet8_t* spritesheet = sprite.spritesheet ? sprite.spritesheet : &_grvgm_state.spritesheet;
-    i32 width = sprite.w == 0 ? 1 : sprite.w;
-    i32 height = sprite.h == 0 ? 1 : sprite.h;
-	grv_img8_t img = grv_spritesheet8_get_img8_by_index(spritesheet, sprite.index, width, height);
-	grv_framebuffer_blit_img8(
-		&_grvgm_state.window->framebuffer,
-		&img,
-		fx32_round(sprite.pos.x),
-		fx32_round(sprite.pos.y)
-	);
-}
-
-void grvgm_draw_pixel(vec2_fx32 pos, u8 color) {
-	grv_framebuffer_set_pixel_u8(
-		&_grvgm_state.window->framebuffer,
-		vec2i_make(fx32_round(pos.x), fx32_round(pos.y)),
-		color
-	);
-}
-
-void grvgm_draw_rect(rect_fx32 rect, u8 color) {
-	grv_framebuffer_draw_rect_u8(&_grvgm_state.window->framebuffer, rect_fx32_round(rect), color);
-}
-
-void grvgm_fill_rect(rect_fx32 rect, u8 color) {
-	grv_framebuffer_fill_rect_u8(&_grvgm_state.window->framebuffer, rect_fx32_round(rect), color);
-}
-
-void grvgm_draw_rect_chamfered(rect_fx32 rect, u8 color) {
-	grv_framebuffer_draw_rect_chamfered_u8(&_grvgm_state.window->framebuffer, rect_fx32_round(rect), color);
-}
-
-void grvgm_fill_rect_chamfered(rect_fx32 rect, u8 color) {
-	grv_framebuffer_fill_rect_chamfered_u8(&_grvgm_state.window->framebuffer, rect_fx32_round(rect), color);
-}
-
-void grvgm_draw_circle(vec2_fx32 pos, fx32 r, u8 color) {
-	grv_framebuffer_draw_circle_u8(
-		&_grvgm_state.window->framebuffer, 
-		fx32_round(pos.x),
-		fx32_round(pos.y),
-		fx32_round(r),
-		color);
-}
-
-void grvgm_fill_circle(vec2_fx32 pos, fx32 r, u8 color) {
-	grv_framebuffer_fill_circle_u8(
-		&_grvgm_state.window->framebuffer, 
-		fx32_round(pos.x),
-		fx32_round(pos.y),
-		fx32_round(r),
-		color);
-}
-
-rect_fx32 grvgm_text_rect(grv_str_t str) {
-    vec2i text_size = grv_bitmap_font_calc_size(_grvgm_state.font, str);
-    return rect_fx32_from_i32(0, 0, text_size.x, text_size.y);
-}
-
-void grvgm_draw_text(grv_str_t text, vec2_fx32 pos, u8 color) {
-	grv_put_text_u8(
-		_grvgm_framebuffer(),
-		text,
-		vec2_fx32_round(pos),
-		_grvgm_state.font,
-		color
-	);
-}
-
-void grvgm_draw_text_aligned(grv_str_t text, rect_fx32 rect, grv_alignment_t alignment, u8 color) {
-    rect_fx32 text_rect = grvgm_text_rect(text);
-    text_rect = rect_fx32_align_to_rect(text_rect, rect, alignment);
-    grvgm_draw_text(text, rect_fx32_pos(text_rect), color);
-}
-
-vec2_fx32 grvgm_screen_size(void) {
-	i32 w = _grvgm_state.window->framebuffer.width;
-	i32 h = _grvgm_state.window->framebuffer.height;
-	return vec2_fx32_from_i32(w, h);
-}
-
-rect_fx32 grvgm_screen_rect(void) {
-	return (rect_fx32) {
-		.x=0, .y=0,
-		.w=fx32_from_i32(_grvgm_framebuffer()->width),
-		.h=fx32_from_i32(_grvgm_framebuffer()->height)
-	};
-}
-
-fx32 grvgm_time(void) {
-	return (fx32){.val = (i32)(_grvgm_state.game_time_ms * 1024 / 1000)};
-}
-
-fx32 grvgm_timediff(fx32 timestamp) {
-	return fx32_sub(grvgm_time(), timestamp);
-}
-
-vec2_fx32 grvgm_mouse_position(void) {
-	return vec2_fx32_from_vec2_f32(_grvgm_state.window->mouse_pos);
-}
-
-//==============================================================================
 // spritesheet hot loading
 //==============================================================================
 u64 _grvgm_spritesheet_mod_time(void) {
@@ -611,7 +502,7 @@ i32 _grvgm_target_frame_time_ms(void) {
 void _grvgm_draw_frame_time(i32 frame_time_ms) {
 	char frame_time_string[16];
 	snprintf(frame_time_string, 16, "%2d", frame_time_ms);
-	grvgm_draw_text(grv_str_ref(frame_time_string), vec2_fx32_from_i32(114,1), 7);
+	grvgm_draw_text((vec2_i32){114,1}, grv_str_ref(frame_time_string), 7);
 }
 
 int grvgm_main(int argc, char** argv) {
