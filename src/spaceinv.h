@@ -25,6 +25,7 @@ typedef struct {
 typedef enum {
     ENTITY_TYPE_PLAYER,
     ENTITY_TYPE_CLAW,
+    ENTITY_TYPE_TITLE_TEXT,
 } entity_type_t;
 
 typedef enum {
@@ -98,9 +99,29 @@ typedef struct {
 } particle_effect_t;
 
 //==============================================================================
+// star field
+//==============================================================================
+
+typedef struct {
+    vec2_fx32 pos;
+    vec2_fx32 vel;
+    i32 spr;
+    u8 color;
+} star_t;
+
+typedef struct {
+    vec2_fx32 vel;
+    star_t arr[64];
+    i32 capacity;
+    i32 size;
+} starfield_t;
+
+//==============================================================================
 // game state
 //==============================================================================
 typedef struct {
+    i32 level;
+    bool wave_cleared;
     scene_t scene;
     entity_t player;
     particle_effect_t player_explosion_effect;
@@ -109,6 +130,7 @@ typedef struct {
         i32 size;
         i32 capacity;
     } shot_arr;
+    starfield_t starfield;
 } spaceinv_state_t;
 
 #endif

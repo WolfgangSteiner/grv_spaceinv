@@ -32,11 +32,21 @@ void entity_update_bounding_box(entity_t* e) {
 
 void alien_entity_update(entity_t*, fx32);
 
+void title_text_update(entity_t* entity, fx32 delta_t) {
+    f64 x = fx32_to_f64(entity->sprite.pos.x);
+    f64 t = fx32_to_f64(grvgm_time()) * 0.5;
+    fx32 phase = fx32_from_f64(t + x / 128);
+    entity->sprite.pos.y = fx32_mula(grvgm_cos(phase), fx32_from_i32(8), fx32_from_i32(44));
+}
+
 void entity_update(entity_t* entity, fx32 delta_t) {
 	switch (entity->entity_type) {
 		case ENTITY_TYPE_CLAW:
 			alien_entity_update(entity, delta_t);
 			break;
+        case ENTITY_TYPE_TITLE_TEXT:
+            title_text_update(entity, delta_t);
+            break;
 		default:
 			entity->sprite.pos = vec2_fx32_smula(
 				entity->vel, delta_t, entity->sprite.pos);
@@ -58,6 +68,19 @@ void scene_init(scene_t* s) {
 	s->entity_arr.capacity = 128;
 }
 
+void scene_clear(scene_t* s) {
+    s->entity_arr.size = 0;
+}
+
+i32 scene_num_aliens(scene_t* scene) {
+    i32 count = 0;
+	for (i32 i = 0; i < scene->entity_arr.size; i++) {
+		entity_t* e = &scene->entity_arr.arr[i];
+        if (e->entity_type == ENTITY_TYPE_CLAW && e->is_alive) count++;
+    }
+    return count;
+}
+
 entity_t* scene_add_entity(scene_t* scene) {
 	if (scene->entity_arr.size == scene->entity_arr.capacity) return NULL;
 	return &scene->entity_arr.arr[scene->entity_arr.size++];
@@ -74,7 +97,6 @@ bool check_player_shot(scene_t* scene, shot_t* shot) {
 	}
 	return false;
 }
-
 
 void update_shots(spaceinv_state_t* state, fx32 delta_t) {
 	vec2_fx32 size = grvgm_screen_size();
@@ -106,7 +128,7 @@ void scene_update(scene_t* scene, fx32 delta_t) {
 void scene_draw(scene_t* scene) {
 	for (i32 i = 0; i < scene->entity_arr.size; i++) {
 		entity_t* e = &scene->entity_arr.arr[i];
-		if (e->is_alive) entity_draw(e);
+		if (e->entity_type == ENTITY_TYPE_TITLE_TEXT || e->is_alive) entity_draw(e);
 	}
 }
 
@@ -119,8 +141,6 @@ void shots_draw(spaceinv_state_t* state) {
 //==============================================================================
 // spaceinvaders game code
 //==============================================================================
-
-
 #include "player.c"
 #include "alien.c"
 
@@ -184,41 +204,148 @@ void explosion_effect_draw(spaceinv_state_t* state, particle_effect_t* e) {
 	}
 }
 
+void title_init(spaceinv_state_t* state) {
+    i32 row_idx = 0;
+    for (i32 i = 0; i < 8; i++) {
+        i32 w = i == 5 ? 1 : 2;
+        i32 offset = i > 5 ? -2 : 0;
+        i32 x0 = 5;
+        entity_t* e = scene_add_entity(&state->scene);
+        *e = (entity_t){
+            .entity_type=ENTITY_TYPE_TITLE_TEXT,
+            .sprite={
+                .pos=vec2_fx32_from_i32(x0+row_idx*8+offset,44),
+                .index=16*13 + row_idx,
+                .w=w,
+                .h=3
+            }
+        };
+        row_idx += w;
+    }
+}
+
+typedef vec2i vec2_i32;
+
+vec2_i32 grvgm_screen_size_i32() {
+    return vec2_fx32_round(grvgm_screen_size());
+}
+
+star_t star_init(i32 y) {
+    vec2_i32 screen_size = grvgm_screen_size_i32();
+    i32 layer = grv_pseudo_random_i32(1,4);
+    f32 v = 20.0f * layer;
+    i32 x = grv_pseudo_random_i32(0,screen_size.x-1);
+    u8 color = grv_min_i32(6, layer + 4);
+
+    star_t star = {
+        .pos = vec2_fx32_from_i32(x,y),
+        .vel = {
+            .y = fx32_from_f32(v)
+        },
+        .color = color
+    };
+    return star;
+}
+
+void starfield_init(starfield_t* starfield) {
+    starfield->capacity = 64;
+    starfield->size = 32;
+    for (i32 i = 0; i < starfield->size; ++i) {
+        starfield->arr[i] = star_init(grv_pseudo_random_i32(0,127));
+    }
+}
+
+void starfield_draw(starfield_t* starfield) {
+    for (i32 i=0; i<starfield->size; i++) {
+        star_t star = starfield->arr[i];
+        grvgm_draw_pixel(star.pos, star.color);
+    }
+}
+
+void starfield_update(starfield_t* starfield, fx32 delta_t) {
+    rect_fx32 screen_rect = grvgm_screen_rect();
+    for (i32 i=0; i<starfield->size; i++) {
+        star_t* star = &starfield->arr[i];
+        star->pos = vec2_fx32_smula(star->vel, delta_t, star->pos);
+        if(star->pos.y.val >= screen_rect.h.val) {
+            *star = star_init(0);
+        }
+    }
+}
+
 void on_init(void** game_state, size_t* size) {
 	spaceinv_state_t* state = grv_alloc_zeros(sizeof(spaceinv_state_t));
+    state->level = -1;
 	scene_init(&state->scene);
+    starfield_init(&state->starfield);
 	player_init(&state->player);
-	alien_create_wave(&state->scene, 5, 8);
 	explosion_effect_reset(&state->player_explosion_effect);
 	state->shot_arr.capacity = 128;
 	*game_state = state;
 	*size = sizeof(spaceinv_state_t);
 	printf("sizeof(spaceinv_state_t): %d\n", (int)sizeof(spaceinv_state_t));
+
+    title_init(state);
 }
 
 void on_update(void* game_state, f32 delta_time) {
 	spaceinv_state_t* state = game_state;
-	fx32 delta_t = fx32_from_f32(delta_time);
-	scene_update(&state->scene, delta_t);
-	player_update(state, delta_t); 
-	update_shots(state, delta_t);
-	check_collision(&state->scene, &state->player);
-	if (state->player.player.state == PLAYER_STATE_EXPLODING) {
-		explosion_effect_update(&state->player_explosion_effect, delta_t);
-	}
+    fx32 delta_t = fx32_from_f32(delta_time);
+    bool start_game = false;
+
+    starfield_update(&state->starfield, delta_t);
+
+    if (state->level == -1) {
+        scene_update(&state->scene, delta_t);
+        if (grvgm_is_button_down(GRVGM_BUTTON_CODE_A)) {
+            scene_clear(&state->scene);
+	        alien_create_wave(&state->scene, 5, 8);
+            state->level=1;
+        }
+    } else {
+        scene_update(&state->scene, delta_t);
+        if (scene_num_aliens(&state->scene) == 0) {
+            state->wave_cleared = true;
+        }
+        player_update(state, delta_t); 
+        update_shots(state, delta_t);
+        check_collision(&state->scene, &state->player);
+        if (state->player.player.state == PLAYER_STATE_EXPLODING) {
+            explosion_effect_update(&state->player_explosion_effect, delta_t);
+        }
+    }
+
 }
 
 void on_draw(void* game_state) {
 	spaceinv_state_t* state = game_state;
-	grvgm_clear_screen(3);
-	grvgm_draw_text(grv_str_ref("0123456789:;<=>?"), vec2_fx32_from_i32(1, 1), 7);
-	grvgm_draw_text(grv_str_ref("@ABCDEFGHIJKLMNO"), vec2_fx32_from_i32(1, 7), 7);
-	grvgm_draw_text(grv_str_ref("PQRSTUVWXYZ"), vec2_fx32_from_i32(1, 13), 7);
-	scene_draw(&state->scene);
-	entity_draw(&state->player);
-	shots_draw(state);
-	if (state->player.player.state == PLAYER_STATE_EXPLODING) {
-		explosion_effect_draw(state, &state->player_explosion_effect);
-	}
+	grvgm_clear_screen(0);
+    rect_fx32 screen_rect = grvgm_screen_rect();
+
+    starfield_draw(&state->starfield);
+    if (state->level == -1) {
+	    scene_draw(&state->scene);
+        grvgm_draw_text_aligned(
+            grv_str_ref("press fire to start"),
+            rect_fx32_lower_part(screen_rect, fx32_from_f32(0.4)),
+            GRV_ALIGNMENT_CENTER,
+            6
+        );
+    } else {
+        scene_draw(&state->scene);
+        entity_draw(&state->player);
+        shots_draw(state);
+        if (state->player.player.state == PLAYER_STATE_EXPLODING) {
+            explosion_effect_draw(state, &state->player_explosion_effect);
+        }
+        if (state->wave_cleared) {
+            grvgm_draw_text_aligned(
+                grv_str_ref("wave cleared"),
+                grvgm_screen_rect(),
+                GRV_ALIGNMENT_CENTER,
+                6
+            );
+        }
+    }
 }
 
