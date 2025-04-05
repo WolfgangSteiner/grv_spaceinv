@@ -30,6 +30,7 @@ typedef struct {
 	size_t game_state_size;
 	struct {
 		size_t capacity;
+        size_t initial_capacity;
 		size_t size;
 		u8* data;
 	} game_state_store;
@@ -353,7 +354,8 @@ void _grvgm_init(void) {
 	w->resizable = true;
 	grv_window_show(w);
 	_grvgm_state.font = grvgm_get_small_font();
-	_grvgm_state.game_state_store.capacity = 1024ull*1024ull*1024ull;
+	_grvgm_state.game_state_store.initial_capacity = 256ull*1024ull*1024ull;
+	_grvgm_state.game_state_store.capacity = _grvgm_state.game_state_store.initial_capacity;
 	_grvgm_state.game_state_store.size = 0;
 	_grvgm_state.game_state_store.data = grv_alloc(_grvgm_state.game_state_store.capacity);
 } 
@@ -395,6 +397,9 @@ void _grvgm_pop_game_state(u64 count) {
 
 void _grvgm_reset_game_state_store(void) {
 	_grvgm_state.game_state_store.size = 0;
+    grv_free(_grvgm_state.game_state_store.data);
+    _grvgm_state.game_state_store.data = grv_alloc(
+        _grvgm_state.game_state_store.initial_capacity);
 }
 
 i32 _grvgm_target_frame_time_ms(void) {
