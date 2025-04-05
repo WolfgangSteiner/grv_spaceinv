@@ -297,7 +297,7 @@ void on_update(void* game_state, f32 delta_time) {
 
     if (state->level == -1) {
         scene_update(&state->scene, delta_t);
-        if (grvgm_is_button_down(GRVGM_BUTTON_CODE_A)) {
+        if (grvgm_was_button_pressed(GRVGM_BUTTON_CODE_A)) {
             scene_clear(&state->scene);
 	        alien_create_wave(&state->scene, 5, 8);
             state->level=1;
