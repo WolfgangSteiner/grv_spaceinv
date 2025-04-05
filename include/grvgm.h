@@ -46,7 +46,16 @@ typedef struct {
     grv_spritesheet8_t* spritesheet;
 } grvgm_sprite_t;
 
+
+//==============================================================================
+// controls
+//==============================================================================
 bool grvgm_is_button_down(grvgm_button_code_t button_code);
+
+
+//==============================================================================
+// drawing api
+//==============================================================================
 void grvgm_clear_screen(u8 color);
 void grvgm_draw_sprite(grvgm_sprite_t sprite);
 void grvgm_draw_pixel(vec2_fx32 pos, u8 color);
@@ -55,6 +64,18 @@ void grvgm_draw_circle(vec2_fx32 pos, fx32 r, u8 color);
 void grvgm_fill_circle(vec2_fx32 pos, fx32 r, u8 color);
 void grvgm_draw_text(grv_str_t text, vec2_fx32 pos, u8 color);
 void grvgm_draw_text_aligned(grv_str_t text, rect_fx32 rect, grv_alignment_t alignment, u8 color);
+
+//==============================================================================
+// math
+//==============================================================================
+fx32 grvgm_sin(fx32 x);
+fx32 grvgm_cos(fx32 x);
+
+
+
+//==============================================================================
+// misc
+//==============================================================================
 vec2_fx32 grvgm_screen_size(void);
 rect_fx32 grvgm_screen_rect(void);
 
