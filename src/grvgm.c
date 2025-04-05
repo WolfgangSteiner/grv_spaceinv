@@ -463,7 +463,7 @@ int grvgm_main(int argc, char** argv) {
 		   (int)_grvgm_state.game_state_size,
 		   (f32)_grvgm_state.game_state_size * _grvgm_state.options.fps / 1024.0f);
 	//u64 last_timestamp = SDL_GetTicks64();
-	bool pause = true;
+	bool pause = false;
 	bool show_debug_ui = false;
 
 	grv_window_t* w = _grvgm_state.window;
