@@ -15,6 +15,9 @@ typedef enum {
     GRVGM_BUTTON_CODE_B     = 5,
     GRVGM_BUTTON_CODE_X     = 6,
     GRVGM_BUTTON_CODE_Y     = 7,
+	GRVGM_BUTTON_MOUSE_LEFT = 1,
+	GRVGM_BUTTON_MOUSE_RIGHT = 2,
+	GRVGM_BUTTON_MOUSE_MIDDLE = 3,
 } grvgm_button_code_t;
 
 typedef enum {
@@ -28,7 +31,6 @@ typedef enum {
     GRVGM_KEYMOD_ALT_RIGHT = 32,
     GRVGM_KEYMOD_ALT = GRVGM_KEYMOD_ALT_LEFT | GRVGM_KEYMOD_ALT_RIGHT,
 } grvgm_keymod_t;
-
 
 int grvgm_main(int argc, char** argv);
 
@@ -94,6 +96,12 @@ rect_i32 grvgm_text_rect(grv_str_t str);
 //==============================================================================
 vec2_i32 grvgm_mouse_position(void);
 vec2_fx32 grvgm_mouse_position_fx32(void);
+vec2_i32 grvgm_initial_drag_position(void);
+vec2_fx32 grvgm_initial_drag_position_fx32(void);
+
+bool grvgm_mouse_in_rect(rect_i32 rect);
+bool grvgm_mouse_click_in_rect(rect_i32 rect, i32 button_id);
+bool grvgm_mouse_drag_started_in_rect(rect_i32 rect);
 
 //==============================================================================
 // misc

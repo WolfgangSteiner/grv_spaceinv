@@ -131,3 +131,34 @@ vec2_i32 grvgm_mouse_position(void) {
 vec2_fx32 grvgm_mouse_position_fx32(void) {
 	return vec2_fx32_from_vec2_f32(_grvgm_window()->mouse_view_pos);
 }
+
+bool grvgm_mouse_in_rect(rect_i32 rect) {
+	return rect_i32_point_inside(rect, grvgm_mouse_position());
+}
+
+vec2_i32 grvgm_initial_drag_position(void) {
+	return vec2f_round(_grvgm_window()->mouse_drag_initial_view_pos);
+}
+
+vec2_fx32 grvgm_initial_drag_position_fx32(void) {
+	return vec2_fx32_from_vec2_f32(_grvgm_window()->mouse_drag_initial_view_pos);
+}
+
+bool grvgm_mouse_click_in_rect(rect_i32 rect, i32 button_id) {
+	grv_window_t* w = _grvgm_window();
+	grv_mouse_button_info_t* button_info = &w->mouse_button_info[button_id];
+	if (button_info->is_down && !button_info->was_down && button_info->click_count == 0) {
+		vec2_i32 pos = vec2f_round(button_info->initial_view_pos);
+		if (rect_i32_point_inside(rect, pos)) return true;
+	}
+	return false;
+}
+
+bool grvgm_mouse_drag_started_in_rect(rect_i32 rect) {
+	grv_window_t* w = _grvgm_window();
+	grv_mouse_button_info_t* button_info = &w->mouse_button_info[GRVGM_BUTTON_MOUSE_LEFT];
+	if (w->is_in_drag && rect_i32_point_inside(rect, vec2f_round(w->mouse_drag_initial_view_pos))) {
+		return true;
+	}
+	return false;
+}
