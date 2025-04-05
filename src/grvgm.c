@@ -21,6 +21,7 @@ typedef struct {
 } grvgm_frame_info_t;
 
 typedef struct {
+	i32 current_frame_index;
     struct {
         size_t capacity;
         size_t initial_capacity;
@@ -374,8 +375,25 @@ void _grvgm_game_state_store_init(void) {
         store->frame_info_data.capacity * sizeof(grvgm_frame_info_t));
 }
 
+void _grvgm_game_state_store_reset_size(i32 new_frame_index) {
+    grvgm_game_state_store_t* store = &_grvgm_state.game_state_store;
+    store->frame_info_data.size = new_frame_index;
+	if (store->frame_info_data.size == 0) {
+		store->frame_data.size = 0;
+	} else {
+		size_t prev_frame_idx = new_frame_index - 1;
+		grvgm_frame_info_t prev_frame_info = store->frame_info_data.arr[prev_frame_idx];
+		store->frame_data.size = prev_frame_info.offset + prev_frame_info.size;
+	}
+}
+
 void _grvgm_game_state_push(void) {
     grvgm_game_state_store_t* store = &_grvgm_state.game_state_store;
+
+	if (store->current_frame_index < store->frame_info_data.size - 1) {
+		_grvgm_game_state_store_reset_size(store->current_frame_index);
+	}
+
     if (store->frame_info_data.size >= store->frame_info_data.capacity) {
         store->frame_info_data.capacity *= 2;
         store->frame_info_data.arr = grv_realloc(
@@ -390,6 +408,7 @@ void _grvgm_game_state_push(void) {
         .offset = store->frame_data.size,
 	};
 
+	store->current_frame_index++;
 
 	size_t max_data_size = ZSTD_compressBound(_grvgm_state.game_state_size);
 	while (store->frame_data.size + max_data_size > store->frame_data.capacity) {
@@ -405,13 +424,8 @@ void _grvgm_game_state_push(void) {
 	frame_info->size = compressed_size;
 }
 
-void _grvgm_game_state_pop(u64 count) {
-    grvgm_game_state_store_t* store = &_grvgm_state.game_state_store;
-	size_t num_states = store->frame_info_data.size;
-	if (num_states == 0) return;
-	u64 new_frame_index = num_states < count ? 0 : num_states - count;
-    grvgm_frame_info_t frame_info = store->frame_info_data.arr[new_frame_index];
-	u8* src = store->frame_data.data + frame_info.offset;
+void _grvgm_game_state_restore(grvgm_frame_info_t frame_info) {
+	u8* src = _grvgm_state.game_state_store.frame_data.data + frame_info.offset;
 	size_t decompressed_size = ZSTD_decompress(
 		_grvgm_state.game_state,
 		_grvgm_state.game_state_size,
@@ -420,14 +434,26 @@ void _grvgm_game_state_pop(u64 count) {
 	grv_assert(decompressed_size == _grvgm_state.game_state_size);
 	_grvgm_state.frame_index = frame_info.frame_index;
 	_grvgm_state.game_time_ms = frame_info.game_time_ms;
-    store->frame_info_data.size = new_frame_index;
-	if (store->frame_info_data.size == 0) {
-		store->frame_data.size = 0;
-	} else {
-		size_t prev_frame_idx = new_frame_index - 1;
-		grvgm_frame_info_t prev_frame_info = store->frame_info_data.arr[prev_frame_idx];
-		store->frame_data.size = prev_frame_info.offset + prev_frame_info.size;
-	}
+}
+
+void _grvgm_game_state_jump(i32 delta) {
+    grvgm_game_state_store_t* store = &_grvgm_state.game_state_store;
+	size_t num_states = store->frame_info_data.size;
+	if (num_states == 0) return;
+	i32 new_frame_index = grv_clamp_i32(store->current_frame_index + delta, 0, num_states - 1);
+    grvgm_frame_info_t frame_info = store->frame_info_data.arr[new_frame_index];
+	_grvgm_game_state_restore(frame_info);
+	store->current_frame_index = new_frame_index;
+}
+
+void _grvgm_game_state_pop(u64 count) {
+    grvgm_game_state_store_t* store = &_grvgm_state.game_state_store;
+	size_t num_states = store->frame_info_data.size;
+	if (num_states == 0) return;
+	u64 new_frame_index = num_states < count ? 0 : num_states - count;
+    grvgm_frame_info_t frame_info = store->frame_info_data.arr[new_frame_index];
+	_grvgm_game_state_restore(frame_info);
+	_grvgm_game_state_store_reset_size(new_frame_index);
 }
 
 void _grvgm_game_state_reset_store(void) {
@@ -564,9 +590,12 @@ int grvgm_main(int argc, char** argv) {
 			f32 delta_time = 1.0f/ (f32)_grvgm_state.options.fps; 
 			_grvgm_state.on_update(_grvgm_state.game_state, delta_time);
 			_grvgm_game_state_push();
-		} else if (pause == true && !pause_has_been_activated && grvgm_is_key_down('p')) {
-			i32 frames_to_rewind = grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT) ? 2 : 1;
-			_grvgm_game_state_pop(frames_to_rewind);
+		} else if (pause == true && !pause_has_been_activated && grvgm_is_key_down('h')) {
+			i32 frames_to_jump = grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT) ? 4 : 1;
+			_grvgm_game_state_jump(-frames_to_jump);
+		} else if (pause == true && !pause_has_been_activated && grvgm_is_key_down('l')) {
+			i32 frames_to_jump = grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT) ? 4 : 1;
+			_grvgm_game_state_jump(frames_to_jump);
 		} else if (pause == true && grvgm_was_key_pressed('s')) {
 			FILE* file = fopen("/tmp/game_state.dat", "wb");
             grvgm_game_state_store_t* store = &_grvgm_state.game_state_store;
