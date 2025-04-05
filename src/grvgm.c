@@ -204,10 +204,10 @@ void grvgm_draw_button_state(grv_framebuffer_t* fb) {
 	const i32 right_row_idx = grvgm_is_button_down(GRVGM_BUTTON_CODE_RIGHT) ? 1 : 0;
 	const i32 up_row_idx = grvgm_is_button_down(GRVGM_BUTTON_CODE_UP) ? 1 : 0;
 	const i32 down_row_idx = grvgm_is_button_down(GRVGM_BUTTON_CODE_DOWN) ? 1 : 0;
-	grv_img8_t spr_left = grv_spritesheet8_get_img8(&sprite_sheet, left_row_idx, 0);
-	grv_img8_t spr_right = grv_spritesheet8_get_img8(&sprite_sheet, right_row_idx, 1);
-	grv_img8_t spr_up = grv_spritesheet8_get_img8(&sprite_sheet, up_row_idx, 2);
-	grv_img8_t spr_down = grv_spritesheet8_get_img8(&sprite_sheet, down_row_idx, 3);
+	grv_img8_t spr_left = grv_spritesheet8_get_img8(&sprite_sheet, left_row_idx, 0, 1, 1);
+	grv_img8_t spr_right = grv_spritesheet8_get_img8(&sprite_sheet, right_row_idx, 1, 1, 1);
+	grv_img8_t spr_up = grv_spritesheet8_get_img8(&sprite_sheet, up_row_idx, 2, 1, 1);
+	grv_img8_t spr_down = grv_spritesheet8_get_img8(&sprite_sheet, down_row_idx, 3, 1, 1);
 
 	i32 x = 0;
 	i32 y = 0;
@@ -228,7 +228,9 @@ void grvgm_clear_screen(u8 color) {
 
 void grvgm_draw_sprite(grvgm_sprite_t sprite) {
 	grv_spritesheet8_t* spritesheet = sprite.spritesheet ? sprite.spritesheet : &_grvgm_state.spritesheet;
-	grv_img8_t img = grv_spritesheet8_get_img8_by_index(spritesheet, sprite.index);
+    i32 width = sprite.w == 0 ? 1 : sprite.w;
+    i32 height = sprite.h == 0 ? 1 : sprite.h;
+	grv_img8_t img = grv_spritesheet8_get_img8_by_index(spritesheet, sprite.index, width, height);
 	grv_framebuffer_blit_img8(
 		&_grvgm_state.window->framebuffer,
 		&img,

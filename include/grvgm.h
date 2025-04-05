@@ -41,6 +41,7 @@ extern void on_draw(void);
 typedef struct {
     vec2_fx32 pos;
     i32 index;
+    i32 w,h;
     bool flip_x, flip_y;
     grv_spritesheet8_t* spritesheet;
 } grvgm_sprite_t;

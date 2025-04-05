@@ -1,4 +1,5 @@
 #include "grv_gfx/grv_spritesheet8.h"
+#include "grv/grv_common.h"
 #include "grv/grv_memory.h"
 
 grv_spritesheet8_t grv_spritesheet8_create( i32 width, i32 height, i32 sprite_width, i32 sprite_height) {
@@ -44,27 +45,35 @@ bool grv_spritesheet8_load_from_bmp(grv_str_t filename, grv_spritesheet8_t* spri
 grv_img8_t grv_spritesheet8_get_img8(
 	grv_spritesheet8_t* sprite_sheet,
 	i32 row_idx,
-	i32 col_idx) {
+	i32 col_idx,
+    i32 width,
+    i32 height) {
 	grv_assert(col_idx >= 0);
 	grv_assert(row_idx >= 0);
 	grv_assert(col_idx < sprite_sheet->num_cols);
 	grv_assert(row_idx < sprite_sheet->num_rows);
-	size_t row_offset = sprite_sheet->img.row_skip * sprite_sheet->spr_h * row_idx;
-	size_t col_offset = sprite_sheet->spr_w * col_idx;
+	i32 row_offset = sprite_sheet->img.row_skip * sprite_sheet->spr_h * row_idx;
+	i32 col_offset = sprite_sheet->spr_w * col_idx;
 	u8* pixel_ptr = sprite_sheet->img.pixel_data + row_offset + col_offset;
+    width = grv_min_i32(width, sprite_sheet->num_cols - col_idx);
+    height = grv_min_i32(height, sprite_sheet->num_rows - row_idx);
 	return (grv_img8_t){
-		.w=sprite_sheet->spr_w,
-		.h=sprite_sheet->spr_h,
+		.w=sprite_sheet->spr_w * width,
+		.h=sprite_sheet->spr_h * height,
 		.row_skip=sprite_sheet->img.row_skip,
 		.owns_data=false,
 		.pixel_data=pixel_ptr
 	};
 }
 
-grv_img8_t grv_spritesheet8_get_img8_by_index(grv_spritesheet8_t* sprite_sheet, i32 index) {
+grv_img8_t grv_spritesheet8_get_img8_by_index(
+    grv_spritesheet8_t* sprite_sheet,
+    i32 index,
+    i32 width,
+    i32 height) {
 	grv_assert(index < sprite_sheet->num_rows * sprite_sheet->num_cols); 
 	i32 row_idx = index / sprite_sheet->num_cols;
 	i32 col_idx = index % sprite_sheet->num_cols;
-	return grv_spritesheet8_get_img8(sprite_sheet, row_idx, col_idx);
+	return grv_spritesheet8_get_img8(sprite_sheet, row_idx, col_idx, width, height);
 }
 
