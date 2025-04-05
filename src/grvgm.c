@@ -303,6 +303,13 @@ void grvgm_draw_text(grv_str_t text, vec2_fx32 pos, u8 color) {
 	);
 }
 
+void grvgm_draw_text_aligned(grv_str_t text, rect_fx32 rect, grv_alignment_t alignment, u8 color) {
+    vec2i text_size = grv_bitmap_font_calc_size(_grvgm_state.font, text);
+    rect_fx32 text_rect = rect_fx32_from_i32(0, 0, text_size.x, text_size.y);
+    text_rect = rect_fx32_align_to_rect(text_rect, rect, alignment);
+    grvgm_draw_text(text, rect_fx32_pos(text_rect), color);
+}
+
 //==============================================================================
 // spritesheet hot loading
 //==============================================================================

@@ -54,6 +54,7 @@ void grvgm_draw_rect(rect_fx32 rect, u8 color);
 void grvgm_draw_circle(vec2_fx32 pos, fx32 r, u8 color);
 void grvgm_fill_circle(vec2_fx32 pos, fx32 r, u8 color);
 void grvgm_draw_text(grv_str_t text, vec2_fx32 pos, u8 color);
+void grvgm_draw_text_aligned(grv_str_t text, rect_fx32 rect, grv_alignment_t alignment, u8 color);
 vec2_fx32 grvgm_screen_size(void);
 rect_fx32 grvgm_screen_rect(void);
 
