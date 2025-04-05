@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
 	grvbld_target_add_src(spaceinv, "src/grvgm_main.c");
 	grvbld_target_add_link_option(spaceinv, "-Wl,-rpath=\\$ORIGIN/");
 	//grvbld_target_add_link_option(spaceinv, "-Wl,-z,origin");
-	grvbld_target_link_libraries(spaceinv, "grv", "grvgfx", "grvgm", "SDL2", NULL);
+	grvbld_target_link_libraries(spaceinv, "grv", "grvgfx", "grvgm", "SDL2", "zstd", NULL);
 	//spaceinv->run_after_build = true;
 	grvbld_build_target(config, spaceinv);
 

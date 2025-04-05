@@ -21,11 +21,13 @@
           pkgs.clang
           pkgs.tinycc
           pkgs.ccache
+          pkgs.zstd
         ];
 
         shellHook = ''
           echo "SDL2 development environment activated!"
           export LD_LIBRARY_PATH=build:lib/grv/build:$LD_LIBRARY_PATH
+		  export EDITOR=nvim
         '';
       };
     };
