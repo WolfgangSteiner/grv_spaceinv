@@ -43,6 +43,19 @@ int main(int argc, char** argv) {
 	//spaceinv->run_after_build = true;
 	grvbld_build_target(config, spaceinv);
 
+	grvbld_target_t* lib_synth = grvbld_target_create_dynamic_library("synth");
+	grvbld_target_add_src(lib_synth, "src/synth.c");
+	//grvbld_target_link_libraries(lib_synth, "grv", "grvgfx", "grvgm");
+	grvbld_build_target(config, lib_synth);
+
+	grvbld_target_t* synth = grvbld_target_create_executable("synth");
+	grvbld_target_add_src(synth, "src/grvgm_main.c");
+	grvbld_target_add_link_option(synth, "-Wl,-rpath=\\$ORIGIN/");
+	//grvbld_target_add_link_option(synth, "-Wl,-z,origin");
+	grvbld_target_link_libraries(synth, "grv", "grvgfx", "grvgm", "SDL2", "zstd", NULL);
+	//synth->run_after_build = true;
+	grvbld_build_target(config, synth);
+
 	return 0;
 }
 

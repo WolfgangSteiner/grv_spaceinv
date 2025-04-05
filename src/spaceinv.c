@@ -32,11 +32,27 @@ void entity_update_bounding_box(entity_t* e) {
 
 void alien_entity_update(entity_t*, fx32);
 
+f64 grvgm_cos_f64(f64 x) { return cos(x * 2 * M_PI); }
+f64 grvgm_time_f64() { return fx32_to_f64(grvgm_time()); }
+
 void title_text_update(entity_t* entity, fx32 delta_t) {
-    f64 x = fx32_to_f64(entity->sprite.pos.x);
-    f64 t = fx32_to_f64(grvgm_time()) * 0.5;
-    fx32 phase = fx32_from_f64(t + x / 128);
-    entity->sprite.pos.y = fx32_mula(grvgm_cos(phase), fx32_from_i32(8), fx32_from_i32(44));
+#if 0
+	f64 x = fx32_to_f64(entity->sprite.pos.x);
+	f64 t = grvgm_time_f64();
+	f64 y = 8 * grvgm_cos_f64(0.5 * t + x / 128) + 44;
+	entity->sprite.pos.y = fx32_from_f64(y);
+#elif 0
+	fx32 x = entity->sprite.pos.x;
+	fx32 phase_time = fx32_mul_f64(grvgm_time(), 0.5);
+	fx32 phase_x = fx32_div_f64(entity->sprite.pos.x, 128);
+	fx32 phase = fx32_add(phase_time, phase_x);
+	entity->sprite.pos.y = fx32_mula_f64(grvgm_cos(phase), 8, 44);
+#else
+	fx32 x = entity->sprite.pos.x;
+	fx32 phase = fx32_div_i32(grvgm_time(), 2);
+	phase = fx32_add(phase, fx32_div_i32(x, 128));
+	entity->sprite.pos.y = fx32_mula_i32(grvgm_cos(phase), 8, 44);
+#endif
 }
 
 void entity_update(entity_t* entity, fx32 delta_t) {

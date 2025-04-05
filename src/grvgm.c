@@ -1,6 +1,7 @@
 #include "grvgm.h"
 #include "grv/grv_log.h"
 #include "grv/grv_fs.h"
+#include "grv/grv_path.h"
 #include "grv_gfx/grv_bitmap_font.h"
 #include "grv_gfx/grv_framebuffer.h"
 #include "grv_gfx/grv_img8.h"
@@ -53,14 +54,17 @@ typedef struct {
 	void* game_state;
 	size_t game_state_size;
     grvgm_game_state_store_t game_state_store;
+	grv_str_t executable_path;
+	char* dynamic_library_name;
+	grv_str_t spritesheet_path;
 	struct {
 		bool show_frame_time;
 		i32 fps;
+		bool pause_enabled;
 	} options;
 } grvgm_state_t;
 
 static grvgm_state_t _grvgm_state = {.options.fps=60};
-char* _grv_spritesheet_file_path = "assets/spritesheet.bmp";
 static u8* _grvgm_previous_keyboard_state = NULL;
 static u8* _grvgm_current_keyboard_state = NULL;
 static u8* _grvgm_block_keyboard_state = NULL;
@@ -72,7 +76,7 @@ grv_framebuffer_t* _grvgm_framebuffer(void) {
 //==============================================================================
 // hot-loading of game code
 //==============================================================================
-int _grvgm_load_game_code(char* path) {
+int _grvgm_load_game_code() {
 	if (_grvgm_state.lib_handle) {
 		_grvgm_state.on_init = NULL;
 		_grvgm_state.on_update = NULL;
@@ -81,9 +85,9 @@ int _grvgm_load_game_code(char* path) {
 		_grvgm_state.lib_handle = NULL;
 	}
 
-	_grvgm_state.lib_handle = SDL_LoadObject(path);
+	_grvgm_state.lib_handle = SDL_LoadObject(_grvgm_state.dynamic_library_name);
 	if (_grvgm_state.lib_handle == NULL) {
-		printf("[ERROR] Could not open dynamic library %s.\n", path);
+		printf("[ERROR] Could not open dynamic library %s.\n", _grvgm_state.dynamic_library_name);
 		exit(1);
 	}
 
@@ -194,22 +198,6 @@ int _grvgm_char_to_sdl_scancode(char key) {
 	}
 }
 
-bool grvgm_key_was_pressed(char key) {
-	int scancode = _grvgm_char_to_sdl_scancode(key);
-	if (scancode < 0) return false;
-	return _grvgm_was_sdl_key_pressed(scancode);
-}
-
-bool grvgm_key_was_pressed_with_mod(char key, u32 mod) {
-	return grvgm_is_keymod_down(mod) && grvgm_key_was_pressed(key);
-}
-
-bool grvgm_key_is_down(char key) {
-	int scancode = _grvgm_char_to_sdl_scancode(key);
-	if (scancode < 0) return false;
-	return _grvgm_current_keyboard_state[scancode] != 0;
-}
-
 bool grvgm_is_keymod_down(grvgm_keymod_t keymod) {
 	if (keymod & GRVGM_KEYMOD_SHIFT_LEFT) {
 		if (_grvgm_current_keyboard_state[SDL_SCANCODE_LSHIFT]) return true;
@@ -230,6 +218,22 @@ bool grvgm_is_keymod_down(grvgm_keymod_t keymod) {
 		if (_grvgm_current_keyboard_state[SDL_SCANCODE_RALT]) return true;
 	}
 	return false;
+}
+
+bool grvgm_key_was_pressed(char key) {
+	int scancode = _grvgm_char_to_sdl_scancode(key);
+	if (scancode < 0) return false;
+	return _grvgm_was_sdl_key_pressed(scancode);
+}
+
+bool grvgm_key_was_pressed_with_mod(char key, u32 mod) {
+	return grvgm_is_keymod_down(mod) && grvgm_key_was_pressed(key);
+}
+
+bool grvgm_key_is_down(char key) {
+	int scancode = _grvgm_char_to_sdl_scancode(key);
+	if (scancode < 0) return false;
+	return _grvgm_current_keyboard_state[scancode] != 0;
 }
 
 //==============================================================================
@@ -312,6 +316,18 @@ void grvgm_draw_rect(rect_fx32 rect, u8 color) {
 	grv_framebuffer_draw_rect_u8(&_grvgm_state.window->framebuffer, rect_fx32_round(rect), color);
 }
 
+void grvgm_fill_rect(rect_fx32 rect, u8 color) {
+	grv_framebuffer_fill_rect_u8(&_grvgm_state.window->framebuffer, rect_fx32_round(rect), color);
+}
+
+void grvgm_draw_rect_chamfered(rect_fx32 rect, u8 color) {
+	grv_framebuffer_draw_rect_chamfered_u8(&_grvgm_state.window->framebuffer, rect_fx32_round(rect), color);
+}
+
+void grvgm_fill_rect_chamfered(rect_fx32 rect, u8 color) {
+	grv_framebuffer_fill_rect_chamfered_u8(&_grvgm_state.window->framebuffer, rect_fx32_round(rect), color);
+}
+
 void grvgm_draw_circle(vec2_fx32 pos, fx32 r, u8 color) {
 	grv_framebuffer_draw_circle_u8(
 		&_grvgm_state.window->framebuffer, 
@@ -330,6 +346,26 @@ void grvgm_fill_circle(vec2_fx32 pos, fx32 r, u8 color) {
 		color);
 }
 
+rect_fx32 grvgm_text_rect(grv_str_t str) {
+    vec2i text_size = grv_bitmap_font_calc_size(_grvgm_state.font, str);
+    return rect_fx32_from_i32(0, 0, text_size.x, text_size.y);
+}
+
+void grvgm_draw_text(grv_str_t text, vec2_fx32 pos, u8 color) {
+	grv_put_text_u8(
+		_grvgm_framebuffer(),
+		text,
+		vec2_fx32_round(pos),
+		_grvgm_state.font,
+		color
+	);
+}
+
+void grvgm_draw_text_aligned(grv_str_t text, rect_fx32 rect, grv_alignment_t alignment, u8 color) {
+    rect_fx32 text_rect = grvgm_text_rect(text);
+    text_rect = rect_fx32_align_to_rect(text_rect, rect, alignment);
+    grvgm_draw_text(text, rect_fx32_pos(text_rect), color);
+}
 
 vec2_fx32 grvgm_screen_size(void) {
 	i32 w = _grvgm_state.window->framebuffer.width;
@@ -353,28 +389,15 @@ fx32 grvgm_timediff(fx32 timestamp) {
 	return fx32_sub(grvgm_time(), timestamp);
 }
 
-void grvgm_draw_text(grv_str_t text, vec2_fx32 pos, u8 color) {
-	grv_put_text_u8(
-		_grvgm_framebuffer(),
-		text,
-		vec2_fx32_round(pos),
-		_grvgm_state.font,
-		color
-	);
-}
-
-void grvgm_draw_text_aligned(grv_str_t text, rect_fx32 rect, grv_alignment_t alignment, u8 color) {
-    vec2i text_size = grv_bitmap_font_calc_size(_grvgm_state.font, text);
-    rect_fx32 text_rect = rect_fx32_from_i32(0, 0, text_size.x, text_size.y);
-    text_rect = rect_fx32_align_to_rect(text_rect, rect, alignment);
-    grvgm_draw_text(text, rect_fx32_pos(text_rect), color);
+vec2_fx32 grvgm_mouse_position(void) {
+	return vec2_fx32_from_vec2_f32(_grvgm_state.window->mouse_pos);
 }
 
 //==============================================================================
 // spritesheet hot loading
 //==============================================================================
 u64 _grvgm_spritesheet_mod_time(void) {
-	grv_u64_result_t result = grv_fs_file_mod_time(grv_str_ref(_grv_spritesheet_file_path));
+	grv_u64_result_t result = grv_fs_file_mod_time(_grvgm_state.spritesheet_path);
 	if (!result.valid) {
 		grv_abort(result.error);
 	}
@@ -386,7 +409,7 @@ void _grvgm_load_spritesheet(void) {
 	_grvgm_state.spritesheet.spr_w = 8;
 	_grvgm_state.spritesheet.spr_h = 8;
 	grv_error_t err;
-	bool success = grv_spritesheet8_load_from_bmp(grv_str_ref(_grv_spritesheet_file_path), &_grvgm_state.spritesheet, &err);
+	bool success = grv_spritesheet8_load_from_bmp(_grvgm_state.spritesheet_path, &_grvgm_state.spritesheet, &err);
 	if (success == false) {
 		grv_abort(err);
 	}
@@ -519,8 +542,44 @@ void _grvgm_game_state_reset_store(void) {
 //==============================================================================
 // main loop
 //==============================================================================
-void _grvgm_init(void) {
-	_grvgm_load_game_code("libspaceinv.so");
+void _grvgm_parse_command_line(int argc, char** argv) {
+	grv_strarr_t args = grv_strarr_new_from_cstrarr(argv, argc);
+	i32 i = 1;
+	while (i < args.size) {
+		grv_str_t arg = *grv_strarr_at(args, i);
+		if (grv_str_eq_cstr(arg, "--show-frame-time")) {
+			_grvgm_state.options.show_frame_time = true;
+		} else if (grv_str_starts_with_cstr(arg, "--fps=")) {
+			grv_str_t fps_str = grv_str_split_tail_at_char(arg, '=');
+			if (!grv_str_is_int(fps_str)) {
+				grv_str_t error_msg = grv_str_format_cstr("Invalid syntax: {str}", arg);
+				grv_exit(error_msg);
+			}
+			_grvgm_state.options.fps = grv_min_i32(grv_str_to_int(fps_str), 60);
+		} else {
+			grv_str_t error_msg = grv_str_format_cstr("Unknown option {str}", arg);
+			grv_exit(error_msg);
+		}
+		i++;
+	}
+}
+
+void _grvgm_init(int argc, char** argv) {
+	_grvgm_parse_command_line(argc, argv);
+	_grvgm_state.executable_path = grv_str_ref(argv[0]);
+	grv_str_t executable_filename = grv_path_basename(_grvgm_state.executable_path);
+	grv_str_t dynamic_library_name = grv_str_format_cstr("lib{str}.so", executable_filename);
+	_grvgm_state.dynamic_library_name = grv_str_copy_to_cstr(dynamic_library_name);
+	grv_str_t spritesheet_path = grv_str_format_cstr("assets/{str}_spritesheet.bmp", executable_filename);
+	if (grv_file_exists(spritesheet_path)) {
+		_grvgm_state.spritesheet_path = spritesheet_path;
+	} else {
+		_grvgm_state.spritesheet_path = grv_str_ref("assets/spritesheet.bmp");
+		grv_str_free(&spritesheet_path);
+	}
+	grv_str_free(&dynamic_library_name);
+	grv_str_free(&executable_filename);
+	_grvgm_load_game_code();
 	_grvgm_load_spritesheet();
 	grv_window_t* w = grv_window_new(128,128, 2.0f, grv_str_ref(""));
 	_grvgm_state.window = w;
@@ -555,37 +614,15 @@ void _grvgm_draw_frame_time(i32 frame_time_ms) {
 	grvgm_draw_text(grv_str_ref(frame_time_string), vec2_fx32_from_i32(114,1), 7);
 }
 
-void _grvgm_parse_command_line(int argc, char** argv) {
-	grv_strarr_t args = grv_strarr_new_from_cstrarr(argv, argc);
-	i32 i = 1;
-	while (i < args.size) {
-		grv_str_t arg = *grv_strarr_at(args, i);
-		if (grv_str_eq_cstr(arg, "--show-frame-time")) {
-			_grvgm_state.options.show_frame_time = true;
-		} else if (grv_str_starts_with_cstr(arg, "--fps=")) {
-			grv_str_t fps_str = grv_str_split_tail_at_char(arg, '=');
-			if (!grv_str_is_int(fps_str)) {
-				grv_str_t error_msg = grv_str_format_cstr("Invalid syntax: {str}", arg);
-				grv_exit(error_msg);
-			}
-			_grvgm_state.options.fps = grv_min_i32(grv_str_to_int(fps_str), 60);
-		} else {
-			grv_str_t error_msg = grv_str_format_cstr("Unknown option {str}", arg);
-			grv_exit(error_msg);
-		}
-		i++;
-	}
-}
-
 int grvgm_main(int argc, char** argv) {
-	_grvgm_parse_command_line(argc, argv);
-
-	_grvgm_init();
+	_grvgm_init(argc, argv);
 	_grvgm_state.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
 	printf("[INFO] game_state_size: %d (%.2fk/s)\n",
 		   (int)_grvgm_state.game_state_size,
 		   (f32)_grvgm_state.game_state_size * _grvgm_state.options.fps / 1024.0f);
 	//u64 last_timestamp = SDL_GetTicks64();
+	_grvgm_state.options.pause_enabled = _grvgm_state.game_state != NULL;
+
 	bool pause = false;
 	bool show_debug_ui = false;
 
@@ -603,7 +640,7 @@ int grvgm_main(int argc, char** argv) {
 		_grvgm_check_reload_spritesheet();
 
 		if (grvgm_key_was_pressed_with_mod('r', GRVGM_KEYMOD_CTRL)) {
-			_grvgm_load_game_code("libspaceinv.so");
+			_grvgm_load_game_code();
 			grv_log_info_cstr("Reloaded game code.");
 			if (grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT)) {
 				grv_log_info_cstr("Resetting game state.");
@@ -624,7 +661,8 @@ int grvgm_main(int argc, char** argv) {
 			_grvgm_state.game_time_ms = 0;
 			_grvgm_state.on_update(_grvgm_state.game_state, 0.0f);
 			_grvgm_game_state_push();
-		} else if (grvgm_key_was_pressed_with_mod('p', GRVGM_KEYMOD_CTRL)) {
+		} else if (_grvgm_state.options.pause_enabled 
+			&& grvgm_key_was_pressed_with_mod('p', GRVGM_KEYMOD_CTRL)) {
 			pause = !pause;
 		} else if (pause == false || grvgm_key_was_pressed('n')) {
 			_grvgm_state.frame_index++;
