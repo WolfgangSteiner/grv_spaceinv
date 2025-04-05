@@ -361,7 +361,7 @@ void _grvgm_init(void) {
 	w->resizable = true;
 	grv_window_show(w);
 	_grvgm_state.font = grvgm_get_small_font();
-	_grvgm_state.game_state_store.initial_capacity = 256ull*1024ull*1024ull;
+	_grvgm_state.game_state_store.initial_capacity = 1ull*1024ull*1024ull;
 	_grvgm_state.game_state_store.capacity = _grvgm_state.game_state_store.initial_capacity;
 	_grvgm_state.game_state_store.size = 0;
 	_grvgm_state.game_state_store.data = grv_alloc(_grvgm_state.game_state_store.capacity);
@@ -370,12 +370,12 @@ void _grvgm_init(void) {
 void _grvgm_push_game_state(void) {
 	size_t element_size = _grvgm_state.game_state_size + sizeof(grvgm_frame_info_t);
 	size_t current_size = _grvgm_state.game_state_store.size * element_size;
-	size_t new_size = current_size + element_size;
-	if (new_size > _grvgm_state.game_state_store.capacity) {
+	if (current_size + element_size > _grvgm_state.game_state_store.capacity) {
 		_grvgm_state.game_state_store.capacity *= 2;
 		_grvgm_state.game_state_store.data = grv_realloc(
 			_grvgm_state.game_state_store.data,
 			_grvgm_state.game_state_store.capacity);
+        grv_log_info_cstr("Reallocating game state store.");
 	}
 	u8* dst = _grvgm_state.game_state_store.data + current_size;
 	grvgm_frame_info_t frame_info = {
@@ -407,6 +407,7 @@ void _grvgm_reset_game_state_store(void) {
     grv_free(_grvgm_state.game_state_store.data);
     _grvgm_state.game_state_store.data = grv_alloc(
         _grvgm_state.game_state_store.initial_capacity);
+    _grvgm_state.game_state_store.capacity = _grvgm_state.game_state_store.initial_capacity;
 }
 
 i32 _grvgm_target_frame_time_ms(void) {
@@ -452,9 +453,6 @@ void _grvgm_parse_command_line(int argc, char** argv) {
 }
 
 int grvgm_main(int argc, char** argv) {
-	GRV_UNUSED(argc);
-	GRV_UNUSED(argv);
-
 	_grvgm_parse_command_line(argc, argv);
 
 	_grvgm_init();
