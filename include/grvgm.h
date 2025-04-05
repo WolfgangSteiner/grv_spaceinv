@@ -6,6 +6,7 @@
 #include "grv_gfx/rect_fx32.h"
 #include "grv_gfx/grv_spritesheet8.h"
 
+#define GRVGM_SAMPLE_RATE 48000
 typedef enum {
     GRVGM_BUTTON_CODE_LEFT  = 0,
     GRVGM_BUTTON_CODE_RIGHT = 1,

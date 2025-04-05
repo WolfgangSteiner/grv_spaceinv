@@ -9,10 +9,12 @@
 #include "grvgm_small_font.h"
 #include <SDL2/SDL.h>
 #include <zstd.h>
+#include <stdatomic.h>
 
 typedef void (*grvgm_on_init_func)(void**, size_t*);
 typedef void (*grvgm_on_update_func)(void*, f32);
 typedef void (*grvgm_on_draw_func)(void*);
+typedef void (*grvgm_on_audio_func)(void*, i16*, i32);
 
 typedef struct {
 	u64 frame_index;
@@ -51,6 +53,7 @@ typedef struct {
 	grvgm_on_init_func on_init;
 	grvgm_on_update_func on_update;
 	grvgm_on_draw_func on_draw;
+	grvgm_on_audio_func on_audio;
 	void* game_state;
 	size_t game_state_size;
     grvgm_game_state_store_t game_state_store;
@@ -62,6 +65,7 @@ typedef struct {
 		i32 fps;
 		bool pause_enabled;
 	} options;
+	SDL_AudioDeviceID sdl_audio_device;
 } grvgm_state_t;
 
 static grvgm_state_t _grvgm_state = {.options.fps=60};
@@ -73,14 +77,38 @@ grv_framebuffer_t* _grvgm_framebuffer(void) {
 	return &_grvgm_state.window->framebuffer;
 }
 
+grv_window_t* _grvgm_window(void) {
+	return _grvgm_state.window;
+}
+
+grv_spritesheet8_t* _grvgm_spritesheet(void) {
+	return &_grvgm_state.spritesheet;
+};
+
+grv_bitmap_font_t* _grvgm_font(void) {
+	return _grvgm_state.font;
+}
+
+u64 _grvgm_game_time_ms(void) {
+	return _grvgm_state.game_time_ms;
+}
+//==============================================================================
+// api
+//==============================================================================
+#include "grvgm_api.c"
+
 //==============================================================================
 // hot-loading of game code
 //==============================================================================
 int _grvgm_load_game_code() {
+	SDL_PauseAudioDevice(_grvgm_state.sdl_audio_device, 1);
+
 	if (_grvgm_state.lib_handle) {
 		_grvgm_state.on_init = NULL;
 		_grvgm_state.on_update = NULL;
 		_grvgm_state.on_draw = NULL;
+		_grvgm_state.on_audio = NULL;
+
 		SDL_UnloadObject(_grvgm_state.lib_handle);
 		_grvgm_state.lib_handle = NULL;
 	}
@@ -94,13 +122,15 @@ int _grvgm_load_game_code() {
 	_grvgm_state.on_init = (grvgm_on_init_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_init");
 	_grvgm_state.on_update = (grvgm_on_update_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_update");
 	_grvgm_state.on_draw = (grvgm_on_draw_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_draw");
-	
+	_grvgm_state.on_audio = (grvgm_on_audio_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_audio");
 	grv_assert(_grvgm_state.on_init);
 	grv_assert(_grvgm_state.on_update);
 	grv_assert(_grvgm_state.on_draw);
+
+	SDL_PauseAudioDevice(_grvgm_state.sdl_audio_device, 0);
+
 	return 0;
 }
-
 
 
 //==============================================================================
@@ -322,9 +352,10 @@ void _grvgm_check_reload_spritesheet(void) {
 //==============================================================================
 // game state store
 //==============================================================================
+
 void _grvgm_game_state_store_init(void) {
     grvgm_game_state_store_t* store = &_grvgm_state.game_state_store;
-	store->frame_data.initial_capacity = 1ull*1024ull*1024ull;
+	store->frame_data.initial_capacity = 1 * GRV_MEGABYTES;
 	store->frame_data.capacity = store->frame_data.initial_capacity;
 	store->frame_data.size = 0;
 	store->frame_data.data = grv_alloc(store->frame_data.capacity);
@@ -431,6 +462,36 @@ void _grvgm_game_state_reset_store(void) {
 }
 
 //==============================================================================
+// audio
+//==============================================================================
+void _grvgm_audio_callback(void* userdata, u8* buffer, i32 buffer_length) {
+	GRV_UNUSED(userdata);
+	if (_grvgm_state.on_audio) {
+		_grvgm_state.on_audio(
+			_grvgm_state.game_state,
+			(i16*)buffer,
+			buffer_length / 4);
+	} else {
+		memset(buffer, 0, buffer_length);
+	}
+}
+
+void _grvgm_audio_init() {
+	SDL_Init(SDL_INIT_AUDIO);
+    struct SDL_AudioSpec want = {
+        .freq = GRVGM_SAMPLE_RATE,
+        .format = AUDIO_S16SYS,
+        .channels = 2,         // Stereo
+        .samples = 512,
+        .callback = _grvgm_audio_callback,
+        .userdata = NULL,
+    };
+
+    _grvgm_state.sdl_audio_device = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
+    SDL_PauseAudioDevice(_grvgm_state.sdl_audio_device, 0);
+}
+
+//==============================================================================
 // main loop
 //==============================================================================
 void _grvgm_parse_command_line(int argc, char** argv) {
@@ -508,6 +569,8 @@ void _grvgm_draw_frame_time(i32 frame_time_ms) {
 int grvgm_main(int argc, char** argv) {
 	_grvgm_init(argc, argv);
 	_grvgm_state.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
+	_grvgm_audio_init();
+
 	printf("[INFO] game_state_size: %d (%.2fk/s)\n",
 		   (int)_grvgm_state.game_state_size,
 		   (f32)_grvgm_state.game_state_size * _grvgm_state.options.fps / 1024.0f);
@@ -610,3 +673,6 @@ int grvgm_main(int argc, char** argv) {
 
 	return 0;
 }
+
+
+
