@@ -1,3 +1,3 @@
 #! /usr/bin/bash
 
-gcc -fPIC -shared -o build/libspaceinv.so src/spaceinv.c -Ilib/grv/include -Iinclude
+gcc -fPIC -shared -o build/libspaceinv.so -I. -Iinclude -Ilib/grv/include src/spaceinv.c
