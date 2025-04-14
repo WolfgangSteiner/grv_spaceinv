@@ -117,6 +117,7 @@ f32* process_sequencer(synth_state_t* state) {
 
 f32* process_track(synth_state_t* state, f32* trigger_buffer, i32 track_idx) {
 	f32 trigger_value = trigger_buffer[track_idx];
+	return NULL;
 }
 
 
