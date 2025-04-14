@@ -1,0 +1,30 @@
+[
+  {
+    "arguments": [
+      "/nix/store/ii75mhh7sxl11167m1b86p0qrjsjyjmd-gcc-wrapper-14-20241116/bin/gcc",
+      "-std=gnu11",
+      "-Iinclude",
+      "-I.",
+      "-Ilib/grv/include",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-Wno-cast-function-type",
+      "-Werror=return-type",
+      "-Werror=implicit-function-declaration",
+      "-Werror=strict-prototypes",
+      "-Wextra",
+      "-Wpedantic",
+      "-Wno-error=strict-prototypes",
+      "-g3",
+      "-fPIC",
+      "-c",
+      "-o",
+      "build/spaceinv.o",
+      "src/spaceinv.c"
+    ],
+    "directory": "/home/wst/dev/grv_spaceinv",
+    "file": "/home/wst/dev/grv_spaceinv/src/spaceinv.c",
+    "output": "/home/wst/dev/grv_spaceinv/build/spaceinv.o"
+  }
+]
