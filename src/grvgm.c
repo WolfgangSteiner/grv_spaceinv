@@ -66,6 +66,7 @@ typedef struct {
 		bool pause_enabled;
 	} options;
 	SDL_AudioDeviceID sdl_audio_device;
+	f64 audio_load;
 } grvgm_state_t;
 
 static grvgm_state_t _grvgm_state = {.options.fps=60};
@@ -464,15 +465,22 @@ void _grvgm_game_state_reset_store(void) {
 //==============================================================================
 // audio
 //==============================================================================
-void _grvgm_audio_callback(void* userdata, u8* buffer, i32 buffer_length) {
+void _grvgm_audio_callback(void* userdata, u8* buffer, i32 buffer_num_bytes) {
 	GRV_UNUSED(userdata);
+	i32 buffer_num_frames = buffer_num_bytes / 2 / sizeof(i16);
 	if (_grvgm_state.on_audio) {
+		u64 audio_frame_start_counter = SDL_GetPerformanceCounter();
 		_grvgm_state.on_audio(
 			_grvgm_state.game_state,
 			(i16*)buffer,
-			buffer_length / 4);
+			buffer_num_frames);
+		u64 audio_frame_end_counter = SDL_GetPerformanceCounter();
+		f64 audio_frame_time = (f64)(audio_frame_end_counter - audio_frame_start_counter) / SDL_GetPerformanceFrequency();
+		f64 max_audio_frame_time = (f64)buffer_num_frames / (f64)GRVGM_SAMPLE_RATE;
+		f64 audio_load = audio_frame_time / max_audio_frame_time;
+		_grvgm_state.audio_load = _grvgm_state.audio_load * 0.99 + audio_load * 0.01;
 	} else {
-		memset(buffer, 0, buffer_length);
+		memset(buffer, 0, buffer_num_bytes);
 	}
 }
 
@@ -499,9 +507,7 @@ void _grvgm_parse_command_line(int argc, char** argv) {
 	i32 i = 1;
 	while (i < args.size) {
 		grv_str_t arg = *grv_strarr_at(args, i);
-		if (grv_str_eq_cstr(arg, "--show-frame-time")) {
-			_grvgm_state.options.show_frame_time = true;
-		} else if (grv_str_starts_with_cstr(arg, "--fps=")) {
+		if (grv_str_starts_with_cstr(arg, "--fps=")) {
 			grv_str_t fps_str = grv_str_split_tail_at_char(arg, '=');
 			if (!grv_str_is_int(fps_str)) {
 				grv_str_t error_msg = grv_str_format_cstr("Invalid syntax: {str}", arg);
@@ -560,10 +566,12 @@ i32 _grvgm_target_frame_time_ms(void) {
 	}
 }
 
-void _grvgm_draw_frame_time(i32 frame_time_ms) {
-	char frame_time_string[16];
-	snprintf(frame_time_string, 16, "%2d", frame_time_ms);
-	grvgm_draw_text((vec2_i32){114,1}, grv_str_ref(frame_time_string), 7);
+void _grvgm_draw_frame_statistics(f64 frame_time) {
+	char str[16];
+	snprintf(str, 16, "gfx %0.2f", (f32)(frame_time*60.0));
+	grvgm_draw_text((vec2_i32){96,0}, grv_str_ref(str), 6);
+	snprintf(str, 16, "snd %0.2f", (f32)_grvgm_state.audio_load);
+	grvgm_draw_text((vec2_i32){96,6}, grv_str_ref(str), 6);
 }
 
 int grvgm_main(int argc, char** argv) {
@@ -583,12 +591,13 @@ int grvgm_main(int argc, char** argv) {
 	grv_window_t* w = _grvgm_state.window;
 	grv_framebuffer_t* fb = &w->framebuffer;
 
+	bool show_statistics = false;
 	bool first_iteration = true;
 	bool pause_has_been_activated = false;
 	u64 last_frame_time_ms = 0;
 
 	while (true) {
-		u64 frame_start_time_ms = SDL_GetTicks64();
+		u64 frame_start_counter = SDL_GetPerformanceCounter();
 		grv_window_poll_events();
 		grvgm_poll_keyboard();
 		_grvgm_check_reload_spritesheet();
@@ -650,15 +659,19 @@ int grvgm_main(int argc, char** argv) {
 			grv_log_info_cstr("Game state has been saved.");
 		}
 
+		if (grvgm_key_was_pressed_with_mod('i', GRVGM_KEYMOD_CTRL)) {
+			show_statistics = !show_statistics;
+		}
+
 		_grvgm_state.on_draw(_grvgm_state.game_state);
 
 		if (show_debug_ui) {
 			grvgm_draw_button_state(fb);
 		}
 
-		u64 frame_end_time_ms = SDL_GetTicks64();
-		u64 frame_time_ms = frame_end_time_ms - frame_start_time_ms;
-		if (_grvgm_state.options.show_frame_time) _grvgm_draw_frame_time(frame_time_ms);
+		u64 frame_end_counter = SDL_GetPerformanceCounter();
+		f64 frame_time = (f64)(frame_end_counter - frame_start_counter) / (f64)SDL_GetPerformanceFrequency();
+		if (show_statistics) _grvgm_draw_frame_statistics(frame_time);
 
 		grv_window_present(w);
 
