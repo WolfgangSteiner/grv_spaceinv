@@ -10,6 +10,7 @@
 
 typedef struct {
 	bool activated;
+	i32 note_value;
 } synth_pattern_step_t;
 
 typedef struct {
@@ -24,6 +25,13 @@ typedef struct {
 } synth_engine_state_t;
 
 typedef struct {
+	f32 value;
+	f32 min_value;
+	f32 max_value;
+	f32 smoothed_value;
+} audio_parameter_t;
+
+typedef struct {
 	grv_arena_t audio_arena;
 	synth_engine_state_t synth_engine_state;
 } synth_transient_state_t;
@@ -35,15 +43,26 @@ typedef enum {
 	ADSR_RELEASE
 } envelope_state_t;
 
+
 typedef struct {
-	f32 attack;
-	f32 decay;
-	f32 sustain;
-	f32 release;
-	envelope_state_t state;
+	audio_parameter_t attack;
+	audio_parameter_t decay;
+	audio_parameter_t sustain;
+	audio_parameter_t release;
 	f32 y;
-	i32 cycle_time;
+	envelope_state_t state;
 } envelope_t;
+
+typedef struct {
+	audio_parameter_t freq;
+} oscillator_t;
+
+typedef struct {
+	oscillator_t oscillator;
+	envelope_t envelope;
+	audio_parameter_t vol;
+	audio_parameter_t pan;
+} simple_synth_t;
 
 typedef struct {
 	f64 pulse_time;

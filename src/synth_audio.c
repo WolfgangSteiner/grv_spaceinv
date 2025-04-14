@@ -1,4 +1,10 @@
 #include "src/synth.h"
+#include "SDL2/SDL.h"
+
+
+f32 note_value_to_frequency(i32 note_value) {
+	return 440.0f * powf(2.0f, (note_value - 69) / 12.0f);
+}
 
 f32 lerp(f32* a, f32 b, f32 c) {
 	*a = (*a) * (1.0f - c) + c * b;
@@ -29,6 +35,10 @@ f32* smooth_parameter(grv_arena_t* arena, f32* param, f32 target_param, f32 smoo
 }
 
 f32* process_envelope(grv_arena_t* arena, f32* trigger, envelope_t* envelope, i32 num_frames) {
+	f32 target_value = 0.0f;
+	if (*trigger > 0.0f) {
+
+	}
 	f32* outptr = arena_alloc_buffer(arena);
 	f32 y = envelope->y;
 	envelope_state_t state = envelope->state;
@@ -114,18 +124,32 @@ f32* process_sequencer(synth_state_t* state) {
 	return trigger_buffer;
 }
 
-
 f32* process_track(synth_state_t* state, f32* trigger_buffer, i32 track_idx) {
 	f32 trigger_value = trigger_buffer[track_idx];
 	return NULL;
 }
 
+void process_mono_to_stereo(f32* left, f32* right, f32* in, f32* pan) {
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		f32 phi = HALF_PI_F32 * 0.5f * ((*pan++) + 1.0f);
+		f32 in_value = *in++;
+		*left++ = cosf(phi) * in_value;
+		*right++ = sinf(phi) * in_value;
+	}
+}
 
 void on_audio(void* state, i16* stream, i32 num_frames) {
 	synth_state_t* synth_state = state;
 	i64 sample_time = synth_state->sample_time;
 	grv_arena_t* arena = &synth_state->transient.audio_arena;
 	synth_engine_state_t* engine_state = &synth_state->transient.synth_engine_state;
+
+	f32* out_l = arena_alloc_buffer(arena);
+	f32* out_r = arena_alloc_buffer(arena);
+
+	//i32 num_tracks = synth_state.num_tracks;
+
+
 	for (i32 i = 0; i < num_frames / AUDIO_FRAME_SIZE; i++) {
 		grv_arena_push_frame(arena);
 		f32 target_amp = synth_state->start_selected ? 0.25 : 0.0;
@@ -136,10 +160,10 @@ void on_audio(void* state, i16* stream, i32 num_frames) {
 		f32* amp = smooth_parameter(arena, &engine_state->amp_state, target_amp, 0.002f);
 		f32* phase = fill_phase_buffer(arena, freq, &engine_state->phase_state);
 		f32* sine = sine_osc(arena, phase, amp);
-		render_pcm_stereo(stream, sine, sine, i);
 		grv_arena_pop_frame(arena);
+
+		render_pcm_stereo(stream, out_l, out_r, i);
 		process_transport(&synth_state->transport);
 	}
-	
 	grv_arena_reset(arena);
 }
