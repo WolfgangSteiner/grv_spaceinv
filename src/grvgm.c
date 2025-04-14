@@ -673,15 +673,8 @@ int grvgm_main(int argc, char** argv) {
 		f64 frame_time = (f64)(frame_end_counter - frame_start_counter) / (f64)SDL_GetPerformanceFrequency();
 		if (show_statistics) _grvgm_draw_frame_statistics(frame_time);
 
+		// presenting the window will wait for vsync
 		grv_window_present(w);
-
-		u64 target_frame_time_ms = _grvgm_target_frame_time_ms();
-		frame_end_time_ms = SDL_GetTicks64();
-		frame_time_ms = frame_end_time_ms - frame_start_time_ms;
-		
-		if (frame_time_ms < target_frame_time_ms) {
-			SDL_Delay(target_frame_time_ms - frame_time_ms);
-		}
 	}
 
 	return 0;
