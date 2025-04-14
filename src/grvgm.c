@@ -495,7 +495,12 @@ void _grvgm_audio_init() {
         .userdata = NULL,
     };
 
-    _grvgm_state.sdl_audio_device = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
+	struct SDL_AudioSpec obtained = {0};
+
+    _grvgm_state.sdl_audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &obtained, 0);
+
+	printf("[INFO] Audio device opened with buffer size %d.\n", obtained.samples);
+
     SDL_PauseAudioDevice(_grvgm_state.sdl_audio_device, 0);
 }
 
