@@ -101,7 +101,7 @@ void process_transport(transport_state_t* state) {
 f32* process_sequencer(synth_state_t* state) {
 	f32* trigger_buffer = grv_arena_alloc(
 		&state->transient.audio_arena,
-		state->num_patterns * sizeof(f32));
+		state->patterns.size* sizeof(f32));
 
 	f64 prev_pulse_time = state->transport.prev_pulse_time;
 	f64 pulse_time = state->transport.pulse_time;
@@ -109,8 +109,8 @@ f32* process_sequencer(synth_state_t* state) {
 	i32 prev_step = grv_floor_f64(prev_pulse_time) * 4 / PPQN;
 	i32 step = grv_floor_f64(pulse_time) * 4 / PPQN;
 
-	for (i32 i = 0; i < state->num_patterns; i++) {
-		synth_pattern_t* pattern = &state->patterns[i];
+	for (i32 i = 0; i < state->patterns.size; i++) {
+		synth_pattern_t* pattern = &state->patterns.arr[i];
 		f32 trigger_value = 0.0f;
 
 		if (step != prev_step

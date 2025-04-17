@@ -24,9 +24,12 @@ void draw_pattern_triggers(rect_i32 rect, synth_state_t* state) {
 	i32 gap = 1;
 	i32 num_steps = 16;
 	i32 trigger_size = (rect.w - (num_steps - 1) * gap) / num_steps;
-	rect_i32 content_rect = {.w = num_steps * trigger_size + (num_steps - 1) * gap, .h = trigger_size};
+	rect_i32 content_rect = {
+		.w = num_steps * trigger_size + (num_steps - 1) * gap,
+		.h = trigger_size
+	};
 	content_rect = rect_i32_align_to_rect(content_rect, rect, GRV_ALIGNMENT_CENTER);
-	synth_pattern_t* pattern = &state->patterns[state->current_pattern];
+	synth_pattern_t* pattern = &state->patterns.arr[state->current_pattern];
 	rect_i32 button_rect = {.y=content_rect.y, .w=trigger_size, .h=trigger_size};
 	i32 playing_step_idx = (i32)state->transport.pulse_time * 4 / PPQN;
 	for (i32 i = 0; i < num_steps; i++) {

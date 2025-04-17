@@ -75,11 +75,35 @@ typedef struct {
 } transport_state_t;
 
 typedef struct {
+
+} audio_effect_t;
+
+
+typedef struct {
+	audio_parameter_t volume;
+	audio_parameter_t pan;
+} track_output_t;
+
+typedef struct {
+	simple_synth_t synth;
+	audio_effect_t effects[16];
+	track_output_t output;
+} synth_track_t;
+
+typedef struct {
 	bool start_selected;
 	i32 value;
-	synth_pattern_t patterns[8];
+	struct {
+		synth_pattern_t arr[8];
+		i32 capacity;
+		i32 size;
+	} patterns;
+	struct {
+		synth_track_t arr[8];
+		i32 capacity;
+		i32 size;
+	} tracks;
 	i32 current_pattern;
-	i32 num_patterns;
 	i32 sample_rate;
 	i64 sample_time;
 	transport_state_t transport;
