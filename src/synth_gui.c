@@ -164,5 +164,12 @@ void on_draw(void* state) {
 		rect_i32_align_to_rect((rect_i32){.w=7,.h=7}, grvgm_screen_rect(), GRV_ALIGNMENT_HORIZONTAL_CENTER),
 		&synth_state->transport
 	);
+
+	if (synth_state->tracks.arr[0].synth.envelope.state >= 1) {
+		grvgm_draw_pixel((vec2_i32){127,0}, 7);
+	} else {
+		grvgm_draw_pixel((vec2_i32){127,0}, 5);
+
+	}
 }
 

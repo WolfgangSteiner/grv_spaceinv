@@ -5,13 +5,10 @@
 
 void on_init(void** game_state, size_t* size) {
 	synth_state_t* synth_state = grv_alloc_zeros(sizeof(synth_state_t));
-
+	synth_state_init(synth_state);
 	if (synth_state->transient.audio_arena.data == NULL) {
 		grv_arena_init(&synth_state->transient.audio_arena, 1*GRV_MEGABYTES);
 	}
-	synth_state->sample_rate = GRVGM_SAMPLE_RATE;
-	synth_state->transport.bpm = 120.0;
-	synth_state->transport.prev_pulse_time = -1.0;
 	*game_state = synth_state;
 	*size = sizeof(synth_state_t) - sizeof(synth_transient_state_t);
 }

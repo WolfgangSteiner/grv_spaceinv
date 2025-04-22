@@ -1,6 +1,18 @@
 #include "src/synth.h"
 #include "SDL2/SDL.h"
 
+f32* arena_alloc_buffer(grv_arena_t* arena) {
+	return grv_arena_alloc(arena, AUDIO_FRAME_SIZE*sizeof(f32));
+}
+
+f32* arena_alloc_zero_buffer(grv_arena_t* arena) {
+	f32* buffer = arena_alloc_buffer(arena);
+	memset(buffer, 0, AUDIO_FRAME_SIZE*sizeof(f32));
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		buffer[i] = 0.0f;
+	}
+	return buffer;
+}
 
 f32 note_value_to_frequency(i32 note_value) {
 	return 440.0f * powf(2.0f, (note_value - 69) / 12.0f);
@@ -16,42 +28,183 @@ f32 smooth_filter(f32* a, f32 b) {
 	return lerp(a, b, c);
 }
 
-f32* arena_alloc_buffer(grv_arena_t* arena) {
-	return grv_arena_alloc(arena, AUDIO_FRAME_SIZE*sizeof(f32));
+void process_mul(f32* dst, f32* a, f32* b) {
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		*dst++ = (*a++) * (*b++);
+	}
 }
 
-f32* smooth_parameter(grv_arena_t* arena, f32* param, f32 target_param, f32 smoothing_coefficient) {
+void audio_buffer_copy(f32* dst, f32* src) {
+	memcpy(dst, src, AUDIO_FRAME_SIZE * sizeof(f32));
+}
+
+void audio_buffer_clear(f32* dst) {
+	memset(dst, 0, AUDIO_FRAME_SIZE * sizeof(f32));
+}
+
+f32* audio_buffer_from_constant(f32 c, grv_arena_t* arena) {
 	f32* outptr = arena_alloc_buffer(arena);
 	f32* dst = outptr;
-	f32 y = *param;
-	f32 a = 1.0f - smoothing_coefficient;
-	f32 b = smoothing_coefficient;
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-		y = y * a + target_param * b;
-		*dst++ = y;
+		*dst++ = c;
 	}
-	*param = y;
+
 	return outptr;
 }
 
-f32* process_envelope(grv_arena_t* arena, f32* trigger, envelope_t* envelope, i32 num_frames) {
-	f32 target_value = 0.0f;
-	if (*trigger > 0.0f) {
 
-	}
+f32* smooth_audio_parameter(audio_parameter_t* p, grv_arena_t* arena) {
 	f32* outptr = arena_alloc_buffer(arena);
-	f32 y = envelope->y;
-	envelope_state_t state = envelope->state;
+	f32* dst = outptr;
+	f32 y = p->smoothed_value;
+	f32 y_target = p->value;
+	f32 alpha = p->smoothing_coefficient == 0.0f ? 0.01 : p->smoothing_coefficient;
+	f32 a = 1.0f - alpha;
+	f32 b = alpha;
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		y = y * a + y_target * b;
+		*dst++ = y;
+	}
+	p->smoothed_value = y;
+	return outptr;
+}
+
+f32* smooth_value(f32 y_target, f32* y_state, f32 alpha, grv_arena_t* arena){
+	f32* outptr = arena_alloc_buffer(arena);
+	f32* dst = outptr;
+	f32 y = *y_state;
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		y += (y_target - y) * alpha;
+		*dst++ = y;
+	}
+	*y_state = y;
+	return outptr;
+}
+
+void clear_buffer(f32* buffer) {
+	memset(buffer, 0, AUDIO_FRAME_SIZE * sizeof(f32));
+}
+
+f32 envelope_compute_alpha(f32 t_samples, f32 target_ratio) {
+	return t_samples <= 0.0f 
+		? 1.0f 
+		: expf(-logf((1.0f + target_ratio) / target_ratio) / t_samples);
+} 
+
+void envelope_set_attack_time(envelope_t* envelope, f32 t_s) {
+	t_s = grv_clamp_f32(t_s, envelope->attack.min_value, envelope->attack.max_value);
+	f32 attack_rate = t_s * GRVGM_SAMPLE_RATE;
+	envelope->attack.value = t_s;
+	envelope->alpha_attack = envelope_compute_alpha(attack_rate, envelope->target_ratio_attack);
+	envelope->offset_attack = (1.0f + envelope->target_ratio_attack) * (1.0f - envelope->alpha_attack);
+}
+
+void envelope_set_decay_time(envelope_t* envelope, f32 t_s) {
+	t_s = grv_clamp_f32(t_s, envelope->decay.min_value, envelope->decay.max_value);
+	f32 decay_rate = t_s * GRVGM_SAMPLE_RATE;
+	envelope->decay.value = t_s;
+	envelope->alpha_decay = envelope_compute_alpha(decay_rate, envelope->target_ratio_decay_release);
+	envelope->offset_decay = (envelope->sustain.value - envelope->target_ratio_decay_release) * (1.0f - envelope->alpha_decay);
+}
+
+void envelope_set_release_time(envelope_t* envelope, f32 t_s) {
+	t_s = grv_clamp_f32(t_s, envelope->release.min_value, envelope->release.max_value);
+	f32 release_rate = t_s * GRVGM_SAMPLE_RATE;
+	envelope->release.value = t_s;
+	envelope->alpha_release = envelope_compute_alpha(release_rate, envelope->target_ratio_decay_release);
+	envelope->offset_release = -envelope->target_ratio_decay_release * (1.0f - envelope->alpha_release);
+}
+
+void envelope_init(envelope_t* envelope) {
+	f32 t_attack = 0.1f;
+	f32 t_decay = 0.2f;
+	f32 t_release = 0.5f;
+	f32 sustain = 0.9f;
+
+	*envelope = (envelope_t) {
+		.attack = {
+			.min_value = 0.0f,
+			.max_value = 1.0f,
+			.mapping_type = MAPPING_TYPE_LOG,
+		},
+		.decay = {
+			.min_value = 0.0f,
+			.max_value = 1.0f,
+			.mapping_type = MAPPING_TYPE_LOG,
+		},
+		.release = {
+			.min_value = 0.0f,
+			.max_value = 1.0f,
+			.mapping_type = MAPPING_TYPE_LOG,
+		},
+		.sustain = {
+			.value = sustain,
+			.min_value = 0.0f,
+			.max_value = 1.0f,
+			.mapping_type = MAPPING_TYPE_DB,
+		},
+		.target_ratio_attack = 0.3f,
+		.target_ratio_decay_release = 0.0001f,
+	};
+	envelope_set_attack_time(envelope, t_attack);
+	envelope_set_decay_time(envelope, t_decay);
+	envelope_set_release_time(envelope, t_release);
+}
+
+f32* process_envelope(f32 gate, envelope_t* envelope, grv_arena_t* arena) {
+	envelope_state_t* state = &envelope->state;
+	f32 target_value = 0.0f;
+	if (gate < 0.5f && *state == ENVELOPE_RELEASE && envelope->y <= 0.0f) {
+		*state = ENVELOPE_OFF;
+		envelope->y = 0.0f;
+		envelope->alpha = 0.0f;
+		envelope->offset = 0.0f;
+	} else if (gate < 0.5f && *state != ENVELOPE_OFF) {
+		*state = ENVELOPE_RELEASE;
+		envelope->alpha = envelope->alpha_release;
+		envelope->offset = envelope->offset_release;
+	} else if (gate >= 0.5f 
+		&& (envelope->_prev_gate < 0.5f || *state == ENVELOPE_OFF)) {
+		*state = ENVELOPE_ATTACK;
+		envelope->alpha = envelope->alpha_attack;
+		envelope->offset = envelope->offset_attack;
+	} else if (*state == ENVELOPE_ATTACK && envelope->y >= 1.0f) {
+		*state = ENVELOPE_DECAY;
+		envelope->alpha = envelope->alpha_decay;
+		envelope->offset = envelope->offset_decay;
+	} else if (*state == ENVELOPE_DECAY && envelope->y <= envelope->sustain.value) {
+		*state = ENVELOPE_SUSTAIN;
+		envelope->alpha = 0.0f;
+		envelope->offset = 0.0f;
+		envelope->y = envelope->sustain.value;
+	}
+
+	f32* outptr = arena_alloc_buffer(arena);
+	f32* dst = outptr;
+	if (*state == ENVELOPE_OFF) {
+		clear_buffer(outptr);
+	} else {
+		f32 alpha = envelope->alpha;
+		f32 offset = envelope->offset;
+		f32 y = envelope->y;
+		for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+			y = offset + y * alpha;
+			y = grv_clamp_f32(y, 0.0f, 1.0f);
+			*dst++ = y;
+		}
+		envelope->y = y;
+	}
+	envelope->_prev_gate = gate;
+
 	return outptr;
 }
 
 f32* fill_phase_buffer(grv_arena_t* arena, f32* freq, f32* phase_state) {
 	f32* outptr = arena_alloc_buffer(arena);
 	f32* dst = outptr;
-	f32 sr = GRVGM_SAMPLE_RATE;
 	f32 ph = *phase_state;
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-		ph += (*freq++) / sr;
+		ph += (*freq++) / GRVGM_SAMPLE_RATE;
 		if (ph >= 1.0f) ph -= 1.0f;
 		*dst++ = ph;
 	}
@@ -59,11 +212,11 @@ f32* fill_phase_buffer(grv_arena_t* arena, f32* freq, f32* phase_state) {
 	return outptr;
 }
 
-f32* sine_osc(grv_arena_t* arena, f32* phase, f32* amp) {
+f32* sine_osc(grv_arena_t* arena, f32* phase) {
 	f32* outptr = arena_alloc_buffer(arena);
 	f32* dst = outptr;
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-		*dst++ = (*amp++) * sinf(*phase++ * TWO_PI_F32);
+		*dst++ = sinf(*phase++ * TWO_PI_F32);
 	}
 	return outptr;
 }
@@ -89,7 +242,6 @@ void process_transport(transport_state_t* state) {
 		f64 pattern_length = PPQN * 4; 
 		if (pulse_time >= pattern_length) {
 			pulse_time -= pattern_length;
-			state->prev_pulse_time -= pattern_length;
 		}
 		state->pulse_time = pulse_time;
 		state->bar = (i32)pulse_time / 4 / PPQN;
@@ -98,35 +250,52 @@ void process_transport(transport_state_t* state) {
 	}
 }
 
-f32* process_sequencer(synth_state_t* state) {
-	f32* trigger_buffer = grv_arena_alloc(
-		&state->transient.audio_arena,
-		state->patterns.size* sizeof(f32));
+grv_arena_t* get_arena(synth_state_t* state) {
+	return &state->transient.audio_arena;
+}
+
+note_event_t* process_sequencer(synth_state_t* state) {
+	grv_arena_t* arena = get_arena(state);
+	i32 num_patterns = state->patterns.size;
+	sequencer_state_t* sequencer_state = &state->sequencer_state;
+	note_event_t* event_buffer = grv_arena_alloc_zero(
+		arena,
+		num_patterns * sizeof(note_event_t));
 
 	f64 prev_pulse_time = state->transport.prev_pulse_time;
 	f64 pulse_time = state->transport.pulse_time;
+	f64 delta_ticks = pulse_time - prev_pulse_time;
 
 	i32 prev_step = grv_floor_f64(prev_pulse_time) * 4 / PPQN;
 	i32 step = grv_floor_f64(pulse_time) * 4 / PPQN;
 
-	for (i32 i = 0; i < state->patterns.size; i++) {
+	for (i32 i = 0; i < num_patterns; i++) {
 		synth_pattern_t* pattern = &state->patterns.arr[i];
-		f32 trigger_value = 0.0f;
+		sequencer_track_state_t* sequencer_track_state = &sequencer_state->track_state[i];
+		note_event_t* event = &event_buffer[i];
 
 		if (step != prev_step
 			&& step >= 0 && step < pattern->num_steps
 			&& pattern->steps[step].activated) {
-			trigger_value = 1.0f;
+			synth_pattern_step_t* pattern_step = &pattern->steps[step];
+			*event = (note_event_t){
+				.type = NOTE_EVENT_ON,
+				.note_value = pattern_step->note_value,
+				.length = pattern_step->length,
+				.amplitude = pattern_step->amplitude,
+			};
+			sequencer_track_state->note_ticks = pattern_step->length;
+		} else if (sequencer_track_state->note_ticks) {
+			sequencer_track_state->note_ticks =
+				grv_max_f64(sequencer_track_state->note_ticks - delta_ticks, 0.0);
+			if (sequencer_track_state->note_ticks == 0) {
+				*event = (note_event_t) {
+					.type = NOTE_EVENT_OFF
+				};
+			}
 		}
-
-		trigger_buffer[i] = trigger_value;
 	}
-	return trigger_buffer;
-}
-
-f32* process_track(synth_state_t* state, f32* trigger_buffer, i32 track_idx) {
-	f32 trigger_value = trigger_buffer[track_idx];
-	return NULL;
+	return event_buffer;
 }
 
 void process_mono_to_stereo(f32* left, f32* right, f32* in, f32* pan) {
@@ -138,31 +307,224 @@ void process_mono_to_stereo(f32* left, f32* right, f32* in, f32* pan) {
 	}
 }
 
+void process_add_to_buffer(f32* dst, f32* src) {
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		*dst++ += *src++;
+	}
+}
+
+void process_note_processor(note_processor_t* note_proc, note_event_t* event) {
+	if (event->type == NOTE_EVENT_ON) {
+		note_proc->freq = note_value_to_frequency(event->note_value);
+		note_proc->gate = 1.0f;
+		note_proc->trigger_received = true;
+	} else if (event->type == NOTE_EVENT_OFF) {
+		note_proc->gate = 0.0f;
+	} else {
+		note_proc->trigger_received = false;
+	}
+}
+
+void note_processor_init(note_processor_t* note_proc) {
+	*note_proc = (note_processor_t) {
+		.legato = 0.1,
+		.freq = 440.0f,
+		.smoothed_freq = 440.0f
+	};
+}
+
+void simple_synth_init(simple_synth_t* synth) {
+	*synth = (simple_synth_t) {
+		.vol = {
+			.value = 0.0f,
+			.min_value = -96.0f,
+			.max_value = 0.0f,
+			.mapping_type = MAPPING_TYPE_LINEAR,
+		},
+		.pan = {
+			.value = 0.0f,
+			.min_value = -1.0f,
+			.max_value = 1.0f,
+			.mapping_type = MAPPING_TYPE_LINEAR,
+		},
+	};
+	envelope_init(&synth->envelope);
+	note_processor_init(&synth->note_proc);
+}
+
+f32* process_test_tone(grv_arena_t* arena, f32* phase) {
+	f32* outptr = arena_alloc_buffer(arena);
+	f32* dst = outptr;
+	f32 phase_diff = 440.0f / GRVGM_SAMPLE_RATE;
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		*dst++ = sinf(*phase * TWO_PI_F32);
+		*phase += phase_diff;
+		if (*phase >= 1.0f) *phase -= 1.0f;
+	}
+	return outptr;
+}
+
+void process_simple_synth(
+	f32* buffer_l,
+	f32* buffer_r,
+	simple_synth_t* synth,
+	note_event_t* note_event,
+	grv_arena_t* arena) {
+	grv_arena_push_frame(arena);
+	process_note_processor(&synth->note_proc, note_event);
+	f32* freq = smooth_value(
+		synth->note_proc.freq,
+		&synth->note_proc.smoothed_freq,
+		0.01f,
+		arena);
+	f32* phase = fill_phase_buffer(arena, freq, &synth->phase_state);
+	f32* mono_buffer = sine_osc(arena, phase);
+	f32* amp_env = process_envelope(synth->note_proc.gate, &synth->envelope, arena);
+	process_mul(mono_buffer, mono_buffer, amp_env);
+	//f32* pan = smooth_audio_parameter(&synth->pan, arena);
+	//process_mono_to_stereo(buffer_l, buffer_r, mono_buffer, pan);
+	audio_buffer_copy(buffer_l, mono_buffer);
+	audio_buffer_copy(buffer_r, mono_buffer);
+	grv_arena_pop_frame(arena);
+}
+
+GRV_INLINE f32 from_db(f32 value_db) {
+	return value_db <= 96.0f ? 0.0f : powf(10.0f, value_db / 20.0f);
+}
+
+f32* process_volume_to_amp(f32* volume_buffer, grv_arena_t* arena) {
+	f32* amp_buffer = arena_alloc_buffer(arena);
+	f32* src = volume_buffer;
+	f32* dst = amp_buffer;
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		*dst++ = from_db(*src++);
+	}
+	return amp_buffer;
+}
+
+
+void process_volume(f32* buffer_l, f32* buffer_r, audio_parameter_t* vol, grv_arena_t* arena) {
+	grv_arena_push_frame(arena);
+	f32* amp_db = smooth_audio_parameter(vol, arena);
+	f32* amp = process_volume_to_amp(amp_db, arena);
+	process_mul(buffer_l, buffer_l, amp);
+	process_mul(buffer_r, buffer_r, amp);
+	grv_arena_pop_frame(arena);
+}
+
+void process_track(
+	f32* out_l,
+	f32* out_r,
+	synth_track_t* track,
+	note_event_t* note_event,
+	grv_arena_t* arena) {
+	grv_arena_push_frame(arena);
+	f32* buffer_l = arena_alloc_buffer(arena);
+	f32* buffer_r = arena_alloc_buffer(arena);
+	process_simple_synth(buffer_l, buffer_r, &track->synth, note_event, arena);
+	//process_volume(buffer_l, buffer_r, &track->output.volume, arena);
+	process_add_to_buffer(out_l, buffer_l);
+	process_add_to_buffer(out_r, buffer_r);
+
+	grv_arena_pop_frame(arena);
+}
+
+void transport_state_init(transport_state_t* state) {
+	*state = (transport_state_t) {
+		.bpm = 120.0,
+		.prev_pulse_time = -1.0
+	};
+}
+
+void synth_track_init(synth_track_t* track) {
+	*track = (synth_track_t) {
+		.audio_effects = {
+			.capacity = 4,
+		},
+		.output = {
+			.volume = {
+				.value = -6.0f,
+				.min_value = -96.0f,
+				.max_value = 12.0f,
+				.mapping_type = MAPPING_TYPE_LINEAR,
+			},
+			.pan = {
+				.value = 0.0f,
+				.min_value = -1.0f,
+				.max_value = 1.0f,
+				.mapping_type = MAPPING_TYPE_LINEAR,
+			}
+		}
+	};
+	simple_synth_init(&track->synth);
+}
+
+void pattern_init(synth_pattern_t* pattern) {
+	*pattern = (synth_pattern_t){
+		.num_steps = 16,
+	};
+
+	for (i32 i = 0; i < pattern->num_steps; i++) {
+		synth_pattern_step_t* step = &pattern->steps[i];
+		*step = (synth_pattern_step_t){
+			.note_value = 45, // 440Hz
+			.length = PPQN / 4,
+			.amplitude = 1.0f,
+		};
+	}
+}
+
+
+void synth_state_init(synth_state_t* state) {
+	i32 num_tracks = 8;
+	*state = (synth_state_t) {
+		.sample_rate = GRVGM_SAMPLE_RATE,
+		.patterns = {
+			.size = 1,
+			.capacity = num_tracks,
+		},
+		.tracks = {
+			.size = 1,
+			.capacity = num_tracks,
+		}
+	};
+
+	for (i32 i = 0; i < num_tracks; i++) {
+		pattern_init(&state->patterns.arr[i]);
+		synth_track_init(&state->tracks.arr[i]);
+	}
+
+	transport_state_init(&state->transport);
+}
+
+
 void on_audio(void* state, i16* stream, i32 num_frames) {
 	synth_state_t* synth_state = state;
 	i64 sample_time = synth_state->sample_time;
 	grv_arena_t* arena = &synth_state->transient.audio_arena;
 	synth_engine_state_t* engine_state = &synth_state->transient.synth_engine_state;
 
-	f32* out_l = arena_alloc_buffer(arena);
-	f32* out_r = arena_alloc_buffer(arena);
+	i32 num_tracks = synth_state->tracks.size;
+
+	f32* out_l = arena_alloc_zero_buffer(arena);
+	f32* out_r = arena_alloc_zero_buffer(arena);
 
 	//i32 num_tracks = synth_state.num_tracks;
 
-
-	for (i32 i = 0; i < num_frames / AUDIO_FRAME_SIZE; i++) {
+	for (i32 frame_idx = 0; frame_idx < num_frames / AUDIO_FRAME_SIZE; frame_idx++) {
+		audio_buffer_clear(out_l);
+		audio_buffer_clear(out_r);
 		grv_arena_push_frame(arena);
-		f32 target_amp = synth_state->start_selected ? 0.25 : 0.0;
-		f32 target_freq = 110 * pow(2.0, synth_state->value / 128.0f);
-		f32 bpm = 120.0;
+		note_event_t* note_event_buffer = process_sequencer(synth_state);
 		
-		f32* freq = smooth_parameter(arena, &engine_state->freq_state, target_freq, 0.001f);
-		f32* amp = smooth_parameter(arena, &engine_state->amp_state, target_amp, 0.002f);
-		f32* phase = fill_phase_buffer(arena, freq, &engine_state->phase_state);
-		f32* sine = sine_osc(arena, phase, amp);
+		for (i32 track_idx = 0; track_idx < num_tracks; track_idx++) {
+			synth_track_t* track = &synth_state->tracks.arr[track_idx];
+			process_track(out_l, out_r, track, &note_event_buffer[track_idx], arena);
+		}
+		
 		grv_arena_pop_frame(arena);
 
-		render_pcm_stereo(stream, out_l, out_r, i);
+		render_pcm_stereo(stream, out_l, out_r, frame_idx);
 		process_transport(&synth_state->transport);
 	}
 	grv_arena_reset(arena);
