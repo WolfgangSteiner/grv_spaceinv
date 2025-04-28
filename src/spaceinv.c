@@ -34,6 +34,7 @@ f64 grvgm_cos_f64(f64 x) { return cos(x * 2 * M_PI); }
 f64 grvgm_time_f64(void) { return fx32_to_f64(grvgm_time()); }
 
 void title_text_update(entity_t* entity, fx32 delta_t) {
+	GRV_UNUSED(delta_t);
 #if 0
 	f64 x = fx32_to_f64(entity->pos.x);
 	f64 t = grvgm_time_f64();
@@ -301,7 +302,6 @@ void on_init(void** game_state, size_t* size) {
 void on_update(void* game_state, f32 delta_time) {
 	spaceinv_state_t* state = game_state;
     fx32 delta_t = fx32_from_f32(delta_time);
-    bool start_game = false;
 
     starfield_update(&state->starfield, delta_t);
 

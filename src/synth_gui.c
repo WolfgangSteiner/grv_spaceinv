@@ -54,6 +54,7 @@ bool draw_text_button(rect_i32 rect, grv_str_t text, bool* selected) {
 }
 
 void draw_rect_slider(rect_i32 rect, grv_str_t text, i32* value, i32 min_value, i32 max_value) {
+	GRV_UNUSED(text);
 	rect_i32 slider_rect = {0, 0, 8, 8};
 	slider_rect = rect_i32_align_to_rect(slider_rect, rect, GRV_ALIGNMENT_CENTER);
 	fx32 display_value =
@@ -72,6 +73,7 @@ void draw_rect_slider(rect_i32 rect, grv_str_t text, i32* value, i32 min_value, 
 }
 
 void draw_rect_slider2(rect_i32 rect, grv_str_t text, i32* value, i32 min_value, i32 max_value) {
+	GRV_UNUSED(text);
 	static i32 initial_value = GRV_MAX_I32;
 	rect_i32 slider_rect = {0, 0, 4, 10};
 	slider_rect = rect_i32_align_to_rect(slider_rect, rect, GRV_ALIGNMENT_CENTER);
@@ -121,7 +123,6 @@ void draw_rotary_slider(rect_i32 rect, grv_str_t text, i32* value, i32 min_value
 		.index = 32 + grv_clamp_i32(fx32_round(display_value), 0, 7)
 	};
 	grvgm_draw_sprite(rect_i32_pos(slider_rect), spr);
-	rect_i32 label_rect = rect_i32_align_to_rect(grvgm_text_rect(text), slider_rect, GRV_ALIGNMENT_BELOW_CENTER);
 	grvgm_draw_text_aligned(slider_rect, text, GRV_ALIGNMENT_BELOW_CENTER, 6);
 }
 
@@ -145,8 +146,6 @@ void draw_play_button(rect_i32 rect, transport_state_t* state) {
 void on_draw(void* state) {
 	synth_state_t* synth_state = state;
 	grvgm_clear_screen(0);
-
-	rect_i32 screen_rect = grvgm_screen_rect();
 	rect_i32 button_rect = {0, 0, 25, 11};
 	rect_i32 lower_rect = rect_i32_split_lower(grvgm_screen_rect(), 1, 1);
 	button_rect = rect_i32_align_to_rect(button_rect, lower_rect, GRV_ALIGNMENT_CENTER);

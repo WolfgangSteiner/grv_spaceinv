@@ -153,7 +153,6 @@ void envelope_init(envelope_t* envelope) {
 
 f32* process_envelope(f32 gate, envelope_t* envelope, grv_arena_t* arena) {
 	envelope_state_t* state = &envelope->state;
-	f32 target_value = 0.0f;
 	if (gate < 0.5f && *state == ENVELOPE_RELEASE && envelope->y <= 0.0f) {
 		*state = ENVELOPE_OFF;
 		envelope->y = 0.0f;
@@ -500,16 +499,10 @@ void synth_state_init(synth_state_t* state) {
 
 void on_audio(void* state, i16* stream, i32 num_frames) {
 	synth_state_t* synth_state = state;
-	i64 sample_time = synth_state->sample_time;
 	grv_arena_t* arena = &synth_state->transient.audio_arena;
-	synth_engine_state_t* engine_state = &synth_state->transient.synth_engine_state;
-
 	i32 num_tracks = synth_state->tracks.size;
-
 	f32* out_l = arena_alloc_zero_buffer(arena);
 	f32* out_r = arena_alloc_zero_buffer(arena);
-
-	//i32 num_tracks = synth_state.num_tracks;
 
 	for (i32 frame_idx = 0; frame_idx < num_frames / AUDIO_FRAME_SIZE; frame_idx++) {
 		audio_buffer_clear(out_l);

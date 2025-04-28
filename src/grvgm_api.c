@@ -102,7 +102,6 @@ vec2_fx32 grvgm_screen_size_fx32(void) {
 
 rect_i32 grvgm_screen_rect(void) {
 	return (rect_i32) {
-		.x=0, .y=0,
 		.w=_grvgm_framebuffer()->width,
 		.h=_grvgm_framebuffer()->height
 	};
@@ -110,7 +109,6 @@ rect_i32 grvgm_screen_rect(void) {
 
 rect_fx32 grvgm_screen_rect_fx32(void) {
 	return (rect_fx32) {
-		.x=0, .y=0,
 		.w=fx32_from_i32(_grvgm_framebuffer()->width),
 		.h=fx32_from_i32(_grvgm_framebuffer()->height)
 	};
@@ -156,7 +154,6 @@ bool grvgm_mouse_click_in_rect(rect_i32 rect, i32 button_id) {
 
 bool grvgm_mouse_drag_started_in_rect(rect_i32 rect) {
 	grv_window_t* w = _grvgm_window();
-	grv_mouse_button_info_t* button_info = &w->mouse_button_info[GRVGM_BUTTON_MOUSE_LEFT];
 	if (w->is_in_drag && rect_i32_point_inside(rect, vec2f_round(w->mouse_drag_initial_view_pos))) {
 		return true;
 	}

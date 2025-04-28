@@ -14,6 +14,8 @@ void on_init(void** game_state, size_t* size) {
 }
 
 void on_update(void* game_state, float delta_time) {
+	GRV_UNUSED(game_state);
+	GRV_UNUSED(delta_time);
 	//synth_state.value = fx32_round(fx32_mul_i32(grvgm_time(), 32)) % 128;
 }
 

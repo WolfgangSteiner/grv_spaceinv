@@ -100,6 +100,7 @@ typedef struct {
 } envelope_t;
 
 typedef struct {
+	f32 _phase;
 } oscillator_t;
 
 typedef struct {
@@ -131,10 +132,13 @@ typedef struct {
 	bool is_playing;
 } transport_state_t;
 
+typedef enum {
+	AUDIO_EFFECT_DELAY,
+} audio_effect_type_t;
+
 typedef struct {
-
+	audio_effect_type_t type;
 } audio_effect_t;
-
 
 typedef struct {
 	audio_parameter_t volume;

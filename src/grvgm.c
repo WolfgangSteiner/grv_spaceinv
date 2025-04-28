@@ -17,24 +17,24 @@ typedef void (*grvgm_on_draw_func)(void*);
 typedef void (*grvgm_on_audio_func)(void*, i16*, i32);
 
 typedef struct {
-	u64 frame_index;
 	u64 game_time_ms;
-    size_t offset;
-    size_t size;
+	i32 frame_index;
+    i32 offset;
+    i32 size;
 } grvgm_frame_info_t;
 
 typedef struct {
 	i32 current_frame_index;
     struct {
-        size_t capacity;
-        size_t initial_capacity;
-        size_t size;
+        i32 capacity;
+        i32 initial_capacity;
+        i32 size;
         u8* data;
     } frame_data;
     struct {
-        size_t capacity;
-        size_t initial_capacity;
-        size_t size;
+        i32 capacity;
+        i32 initial_capacity;
+        i32 size;
         grvgm_frame_info_t* arr;
     } frame_info_data;
 } grvgm_game_state_store_t;
@@ -84,7 +84,7 @@ grv_window_t* _grvgm_window(void) {
 
 grv_spritesheet8_t* _grvgm_spritesheet(void) {
 	return &_grvgm_state.spritesheet;
-};
+}
 
 grv_bitmap_font_t* _grvgm_font(void) {
 	return _grvgm_state.font;
@@ -101,7 +101,7 @@ u64 _grvgm_game_time_ms(void) {
 //==============================================================================
 // hot-loading of game code
 //==============================================================================
-int _grvgm_load_game_code() {
+int _grvgm_load_game_code(void) {
 	SDL_PauseAudioDevice(_grvgm_state.sdl_audio_device, 1);
 
 	if (_grvgm_state.lib_handle) {
@@ -403,7 +403,7 @@ void _grvgm_game_state_push(void) {
 
 	store->current_frame_index++;
 
-	size_t max_data_size = ZSTD_compressBound(_grvgm_state.game_state_size);
+	i32 max_data_size = ZSTD_compressBound(_grvgm_state.game_state_size);
 	while (store->frame_data.size + max_data_size > store->frame_data.capacity) {
 		store->frame_data.capacity *= 2;
 		store->frame_data.data = grv_realloc(store->frame_data.data, store->frame_data.capacity);
@@ -484,7 +484,7 @@ void _grvgm_audio_callback(void* userdata, u8* buffer, i32 buffer_num_bytes) {
 	}
 }
 
-void _grvgm_audio_init() {
+void _grvgm_audio_init(void) {
 	SDL_Init(SDL_INIT_AUDIO);
     struct SDL_AudioSpec want = {
         .freq = GRVGM_SAMPLE_RATE,
@@ -598,8 +598,6 @@ int grvgm_main(int argc, char** argv) {
 
 	bool show_statistics = false;
 	bool first_iteration = true;
-	bool pause_has_been_activated = false;
-	u64 last_frame_time_ms = 0;
 
 	while (true) {
 		u64 frame_start_counter = SDL_GetPerformanceCounter();
