@@ -70,6 +70,7 @@ void grvgm_fill_rect_chamfered(rect_i32 rect, u8 color);
 void grvgm_draw_circle(vec2_i32 pos, i32 r, u8 color);
 void grvgm_fill_circle(vec2_i32 pos, i32 r, u8 color);
 void grvgm_draw_text(vec2_i32 pos, grv_str_t text, u8 color);
+void grvgm_draw_text_floating(vec2_i32 pos, grv_str_t text, u8 color);
 void grvgm_draw_text_aligned(rect_i32 rect, grv_str_t text, grv_alignment_t alignment, u8 color);
 
 void grvgm_draw_sprite_fx32(vec2_fx32 pos, grvgm_sprite_t sprite);
@@ -82,6 +83,9 @@ void grvgm_draw_circle_fx32(vec2_fx32 pos, fx32 r, u8 color);
 void grvgm_fill_circle_fx32(vec2_fx32 pos, fx32 r, u8 color);
 void grvgm_draw_text_fx32(vec2_fx32 pos, grv_str_t text, u8 color);
 void grvgm_draw_text_aligned_fx32(rect_fx32 retct, grv_str_t text, grv_alignment_t alignment, u8 color);
+
+void* grvgm_draw_arena_alloc(size_t size);
+void grvgm_defer(void(*callback)(void*), void* data);
 //==============================================================================
 // math
 //==============================================================================

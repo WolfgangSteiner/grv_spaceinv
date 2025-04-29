@@ -72,6 +72,7 @@ void draw_rect_slider(rect_i32 rect, grv_str_t text, i32* value, i32 min_value, 
 	}
 }
 
+
 void draw_rect_slider2(rect_i32 rect, grv_str_t text, i32* value, i32 min_value, i32 max_value) {
 	GRV_UNUSED(text);
 	static i32 initial_value = GRV_MAX_I32;
@@ -93,6 +94,11 @@ void draw_rect_slider2(rect_i32 rect, grv_str_t text, i32* value, i32 min_value,
 			max_value
 		);
 		*value = new_val;
+	
+		char* str = grvgm_draw_arena_alloc(32);
+		snprintf(str, 16, "%d", new_val);
+		vec2_i32 pos = vec2i_add(rect_i32_top_right(slider_rect), (vec2_i32){2,0});
+		grvgm_draw_text_floating(pos, grv_str_ref(str), 7);
 	} else {
 		initial_value = GRV_MAX_I32;
 	}
@@ -129,7 +135,7 @@ void draw_rotary_slider(rect_i32 rect, grv_str_t text, i32* value, i32 min_value
 void draw_beat_time(transport_state_t* state) {
 	char str[32];
 	snprintf(str, 32, "%d.%d.%02d", state->bar, state->beat, state->pulse);
-	grvgm_draw_text((vec2i){0}, grv_str_ref(str), 6);
+	grvgm_draw_text_aligned(grvgm_screen_rect(), grv_str_ref(str), GRV_ALIGNMENT_TOP_RIGHT, 6);
 }
 
 void draw_play_button(rect_i32 rect, transport_state_t* state) {
@@ -163,12 +169,5 @@ void on_draw(void* state) {
 		rect_i32_align_to_rect((rect_i32){.w=7,.h=7}, grvgm_screen_rect(), GRV_ALIGNMENT_HORIZONTAL_CENTER),
 		&synth_state->transport
 	);
-
-	if (synth_state->tracks.arr[0].synth.envelope.state >= 1) {
-		grvgm_draw_pixel((vec2_i32){127,0}, 7);
-	} else {
-		grvgm_draw_pixel((vec2_i32){127,0}, 5);
-
-	}
 }
 

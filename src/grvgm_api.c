@@ -77,6 +77,28 @@ rect_fx32 grvgm_text_rect_fx32(grv_str_t str) {
 void grvgm_draw_text(vec2_i32 pos, grv_str_t text, u8 color) {
 	grv_put_text_u8(_grvgm_framebuffer(), text, pos, _grvgm_font(), color);
 }
+
+typedef struct {
+	vec2_i32 pos;
+	grv_str_t str;
+	u8 color;
+} _grvgm_draw_text_floating_t;
+
+void _grvgm_draw_text_floating(void* data) {
+	_grvgm_draw_text_floating_t* string_data = data;
+	grvgm_draw_text(string_data->pos, string_data->str, string_data->color);
+}
+
+void grvgm_draw_text_floating(vec2_i32 pos, grv_str_t text, u8 color) {
+	_grvgm_draw_text_floating_t* data = grvgm_draw_arena_alloc(sizeof(_grvgm_draw_text_floating_t));
+	*data = (_grvgm_draw_text_floating_t) { 
+		.pos=pos,
+		.color=7,
+		.str=text,
+	};
+	grvgm_defer(_grvgm_draw_text_floating, data);
+}
+
 void grvgm_draw_text_fx32(vec2_fx32 pos, grv_str_t text, u8 color) {
 	grvgm_draw_text(vec2_fx32_round(pos), text, color);
 }
@@ -120,6 +142,26 @@ fx32 grvgm_time(void) {
 
 fx32 grvgm_timediff(fx32 timestamp) {
 	return fx32_sub(grvgm_time(), timestamp);
+}
+
+void* grvgm_draw_arena_alloc(size_t size) {
+	return grv_arena_alloc_zero(_grvgm_state.draw_arena, size);
+}
+
+void grvgm_defer(void(*func)(void*), void* data) {
+	grvgm_callback_t** root = &_grvgm_state.end_of_frame_callback_queue.root;
+	grvgm_callback_t** head = &_grvgm_state.end_of_frame_callback_queue.head;
+	grv_arena_t* arena = _grvgm_state.draw_arena;
+	grvgm_callback_t* callback = grv_arena_alloc(arena, sizeof(grvgm_callback_t));
+	*callback = (grvgm_callback_t) { .func=func, .data=data };
+
+	if (*head == NULL) {
+		*root = callback;
+		*head = callback;
+	} else {
+		(*head)->next = callback;
+		(*head) = (*head)->next;
+	}
 }
 
 vec2_i32 grvgm_mouse_position(void) {

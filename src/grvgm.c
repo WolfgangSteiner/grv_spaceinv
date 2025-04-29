@@ -7,6 +7,7 @@
 #include "grv_gfx/grv_img8.h"
 #include "grv_gfx/grv_spritesheet8.h"
 #include "grvgm_small_font.h"
+#include "grv/grv_arena.h"
 #include <SDL2/SDL.h>
 #include <zstd.h>
 #include <stdatomic.h>
@@ -39,6 +40,12 @@ typedef struct {
     } frame_info_data;
 } grvgm_game_state_store_t;
 
+typedef struct grvgm_callback_s { 
+	void(*func)(void*);
+	void* data;
+	struct grvgm_callback_s* next;
+} grvgm_callback_t;
+
 typedef struct {
 	grv_window_t* window;
 	grv_framebuffer_t* framebuffer;
@@ -67,6 +74,11 @@ typedef struct {
 	} options;
 	SDL_AudioDeviceID sdl_audio_device;
 	f64 audio_load;
+	grv_arena_t* draw_arena;
+	struct {
+		grvgm_callback_t* root;
+		grvgm_callback_t* head;
+	} end_of_frame_callback_queue;
 } grvgm_state_t;
 
 static grvgm_state_t _grvgm_state = {.options.fps=60};
@@ -555,6 +567,8 @@ void _grvgm_init(int argc, char** argv) {
 	grv_window_show(w);
 	_grvgm_state.font = grvgm_get_small_font();
     _grvgm_game_state_store_init();
+	_grvgm_state.draw_arena = grv_alloc_zeros(sizeof(grv_arena_t));
+	grv_arena_init(_grvgm_state.draw_arena, 1 * GRV_MEGABYTES);
 }
 
 i32 _grvgm_target_frame_time_ms(void) {
@@ -577,6 +591,18 @@ void _grvgm_draw_frame_statistics(f64 frame_time) {
 	grvgm_draw_text((vec2_i32){96,0}, grv_str_ref(str), 6);
 	snprintf(str, 16, "snd %0.2f", (f32)_grvgm_state.audio_load);
 	grvgm_draw_text((vec2_i32){96,6}, grv_str_ref(str), 6);
+}
+
+void _grvgm_execute_end_of_frame_callback_queue() {
+	grvgm_callback_t** root = &_grvgm_state.end_of_frame_callback_queue.root;
+	grvgm_callback_t** head = &_grvgm_state.end_of_frame_callback_queue.head;
+	grvgm_callback_t* iter = *root;
+	while (iter) {
+		iter->func(iter->data);
+		iter = iter->next;
+	}
+	*root = NULL;
+	*head = NULL;
 }
 
 int grvgm_main(int argc, char** argv) {
@@ -668,6 +694,8 @@ int grvgm_main(int argc, char** argv) {
 
 		_grvgm_state.on_draw(_grvgm_state.game_state);
 
+		_grvgm_execute_end_of_frame_callback_queue();
+
 		if (show_debug_ui) {
 			grvgm_draw_button_state(fb);
 		}
@@ -678,6 +706,7 @@ int grvgm_main(int argc, char** argv) {
 
 		// presenting the window will wait for vsync
 		grv_window_present(w);
+		grv_arena_reset(_grvgm_state.draw_arena);
 	}
 
 	return 0;
