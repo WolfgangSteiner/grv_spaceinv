@@ -145,12 +145,7 @@ void draw_rect_slider2(rect_i32 rect, char* label, audio_parameter_t* p) {
 		frame_color=7;
 		f32 gui_value = grv_clamp_f32(p->_initial_drag_value + slider_increment(p), 0.0f, 1.0f);
 		f32 new_value = slider_map_value_from_gui(gui_value, p);
-		if (p->set_value_func) {
-			grv_assert(p->parent);
-			p->set_value_func(p->parent, new_value);
-		} else {
-			p->value = new_value;
-		}
+		p->value = new_value;
 	} else {
 		p->_initial_drag_value = GRV_MAX_F32;
 	}

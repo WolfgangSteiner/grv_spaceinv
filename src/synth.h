@@ -67,8 +67,7 @@ typedef struct {
 	f32 sensitivity;
 	f32 _initial_drag_value;
 	mapping_type_t mapping_type;
-	void(*set_value_func)(void*, f32);
-	void* parent;
+	f32 _prev_value;
 } audio_parameter_t;
 
 typedef struct {
