@@ -53,6 +53,8 @@ typedef enum {
 	MAPPING_TYPE_LINEAR,
 	MAPPING_TYPE_LOG,
 	MAPPING_TYPE_DB,
+	MAPPING_TYPE_VOLUME,
+	MAPPING_TYPE_LOG_TIME,
 } mapping_type_t;
 
 
@@ -62,7 +64,11 @@ typedef struct {
 	f32 max_value;
 	f32 smoothed_value;
 	f32 smoothing_coefficient;
+	f32 sensitivity;
+	f32 _initial_drag_value;
 	mapping_type_t mapping_type;
+	void(*set_value_func)(void*, f32);
+	void* parent;
 } audio_parameter_t;
 
 typedef struct {
@@ -130,6 +136,7 @@ typedef struct {
 	i32 beat;
 	i32 pulse;
 	bool is_playing;
+	bool _was_playing;
 } transport_state_t;
 
 typedef enum {
@@ -174,6 +181,7 @@ typedef struct {
 	i64 sample_time;
 	transport_state_t transport;
 	synth_transient_state_t transient;
+	audio_parameter_t master_volume;
 } synth_state_t;
 
 void synth_state_init(synth_state_t* state);
