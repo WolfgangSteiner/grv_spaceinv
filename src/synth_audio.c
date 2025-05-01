@@ -523,11 +523,11 @@ void synth_state_init(synth_state_t* state) {
 	*state = (synth_state_t) {
 		.sample_rate = GRVGM_SAMPLE_RATE,
 		.patterns = {
-			.size = 1,
+			.size = num_tracks,
 			.capacity = num_tracks,
 		},
 		.tracks = {
-			.size = 1,
+			.size = num_tracks,
 			.capacity = num_tracks,
 		}, 
 		.master_volume = {

@@ -237,6 +237,8 @@ void grvgm_poll_keyboard(void) {
 int _grvgm_char_to_sdl_scancode(char key) {
 	if (key >= 'a' && key <= 'z') return SDL_SCANCODE_A + (key - 'a');
 	switch(key) {
+		case ' '  : return SDL_SCANCODE_SPACE;
+		case '\t' : return SDL_SCANCODE_TAB;
 		default: return -1;
 	}
 }

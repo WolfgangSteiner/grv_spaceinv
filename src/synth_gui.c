@@ -29,7 +29,7 @@ void draw_pattern_triggers(rect_i32 rect, synth_state_t* state) {
 		.h = trigger_size
 	};
 	content_rect = rect_i32_align_to_rect(content_rect, rect, GRV_ALIGNMENT_BOTTOM_CENTER);
-	synth_pattern_t* pattern = &state->patterns.arr[state->current_pattern];
+	synth_pattern_t* pattern = &state->patterns.arr[state->selected_track];
 	rect_i32 button_rect = {.y=content_rect.y, .w=trigger_size, .h=trigger_size};
 	i32 playing_step_idx = (i32)state->transport.pulse_time * 4 / PPQN;
 	for (i32 i = 0; i < num_steps; i++) {
@@ -132,6 +132,25 @@ char* slider_format_value(audio_parameter_t* p) {
 	return str;
 }
 
+void draw_track_button(rect_i32 rect, synth_state_t* state, i32 track_idx) {
+	if (grvgm_mouse_click_in_rect(rect, GRVGM_BUTTON_MOUSE_LEFT)) {
+		state->selected_track = track_idx;
+	}
+	char label[8];
+	snprintf(label, 8, "%d", track_idx + 1);
+	u8 color = state->selected_track == track_idx ? 7 : 5;
+	grvgm_draw_text_aligned(rect, grv_str_ref(label), GRV_ALIGNMENT_CENTER, color);
+}
+
+void draw_track_buttons(rect_i32 rect, synth_state_t* state) {
+	rect_i32 button_rect = {.w=3, .h=5};
+	button_rect = rect_i32_align_to_rect(button_rect, rect, GRV_ALIGNMENT_CENTER_LEFT);
+	for (i32 i = 0; i < state->tracks.size; ++i) {
+		draw_track_button(button_rect, state, i);
+		button_rect = rect_i32_clone_right(button_rect, 3);
+	}
+}
+
 void draw_rect_slider2(rect_i32 rect, char* label, audio_parameter_t* p) {
 	GRV_UNUSED(label);
 	rect_i32 slider_rect = {0, 0, 4, 10};
@@ -210,7 +229,7 @@ void draw_envelope_gui(rect_i32 rect, envelope_t* env) {
 }
 
 void draw_synth_gui(rect_i32 rect, synth_state_t* state) {
-	simple_synth_t* synth = &state->tracks.arr[state->current_pattern].synth;
+	simple_synth_t* synth = &state->tracks.arr[state->selected_track].synth;
 	envelope_t* env = &synth->envelope;
 	draw_envelope_gui(rect, env);
 }
@@ -222,6 +241,8 @@ void on_draw(void* state) {
 	rect_i32 screen_rect = grvgm_screen_rect();
 	rect_i32 status_bar_rect = {.w=screen_rect.w, .h=screen_rect.h/16 };
 	rect_i32 content_rect = {.y=status_bar_rect.h, .w=screen_rect.w, .h=screen_rect.h - status_bar_rect.h };
+
+	draw_track_buttons(status_bar_rect, synth_state);
 
 	draw_play_button(
 		rect_i32_align_to_rect((rect_i32){.w=7,.h=7}, status_bar_rect, GRV_ALIGNMENT_HORIZONTAL_CENTER),

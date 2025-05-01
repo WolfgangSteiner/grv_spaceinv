@@ -162,8 +162,6 @@ typedef struct {
 } synth_track_t;
 
 typedef struct {
-	bool start_selected;
-	i32 value;
 	struct {
 		synth_pattern_t arr[8];
 		i32 capacity;
@@ -175,6 +173,7 @@ typedef struct {
 		i32 capacity;
 		i32 size;
 	} tracks;
+	i32 selected_track;
 	i32 current_pattern;
 	i32 sample_rate;
 	i64 sample_time;

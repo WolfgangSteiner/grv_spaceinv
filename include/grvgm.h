@@ -55,6 +55,8 @@ typedef struct {
 //==============================================================================
 bool grvgm_is_button_down(grvgm_button_code_t button_code);
 bool grvgm_was_button_pressed(grvgm_button_code_t button_code);
+bool grvgm_key_was_pressed(char key);
+bool grvgm_key_was_pressed_with_mod(char key, u32 mod);
 
 //==============================================================================
 // drawing api
