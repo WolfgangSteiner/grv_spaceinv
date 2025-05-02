@@ -334,8 +334,10 @@ void on_draw(void* game_state) {
     starfield_draw(&state->starfield);
     if (state->level == -1) {
 	    scene_draw(&state->scene);
+		rect_i32 text_rect;
+        rect_i32_split_vertically(grvgm_screen_rect(), 3, NULL, 2, &text_rect),
         grvgm_draw_text_aligned(
-            rect_i32_split_lower(grvgm_screen_rect(), 3, 2),
+			text_rect,
             grv_str_ref("press fire to start"),
             GRV_ALIGNMENT_CENTER,
             6

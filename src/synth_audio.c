@@ -259,6 +259,15 @@ f32* sine_osc(grv_arena_t* arena, f32* phase) {
 	return outptr;
 }
 
+f32* oscillatr_render_noise(grv_arena_t* arena) {
+	f32* outptr = arena_alloc_buffer(arena);
+	f32* dst = outptr;
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		*dst++ = -1.0f + 2.0f * grvgm_random_f32();
+	}
+	return outptr;
+}
+
 void render_pcm_stereo(i16* out, f32* left, f32* right, i32 frame_idx) {
 	out += frame_idx * 2 * AUDIO_FRAME_SIZE;
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
@@ -379,6 +388,9 @@ void note_processor_init(note_processor_t* note_proc) {
 
 void simple_synth_init(simple_synth_t* synth) {
 	*synth = (simple_synth_t) {
+		.oscillator = {
+			.wave_type = WAVE_TYPE_SINE,
+		},
 		.vol = {
 			.value = 0.0f,
 			.min_value = -96.0f,
@@ -408,6 +420,15 @@ f32* process_test_tone(grv_arena_t* arena, f32* phase) {
 	return outptr;
 }
 
+f32* process_oscillator(oscillator_t* osc, f32* phase_buffer, grv_arena_t* arena) {
+	switch (osc->wave_type) {
+	case WAVE_TYPE_NOISE:
+		return oscillatr_render_noise(arena);
+	default:
+		return sine_osc(arena, phase_buffer);
+	}
+}
+
 void process_simple_synth(
 	f32* buffer_l,
 	f32* buffer_r,
@@ -422,7 +443,7 @@ void process_simple_synth(
 		0.01f,
 		arena);
 	f32* phase = fill_phase_buffer(arena, freq, &synth->phase_state);
-	f32* mono_buffer = sine_osc(arena, phase);
+	f32* mono_buffer = process_oscillator(&synth->oscillator, phase, arena);
 	f32* amp_env = process_envelope(
 		synth->note_proc.gate,
 		synth->note_proc.trigger_received,

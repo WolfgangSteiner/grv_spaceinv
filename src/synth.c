@@ -25,6 +25,5 @@ void on_update(void* game_state, float delta_time) {
 	} else if (grvgm_key_was_pressed('\t')) {
 		synth_state->selected_track = (synth_state->selected_track + 1) % num_tracks;
 	}
-	//synth_state.value = fx32_round(fx32_mul_i32(grvgm_time(), 32)) % 128;
 }
 

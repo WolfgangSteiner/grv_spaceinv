@@ -1,3 +1,5 @@
+#include "grv/grv_pseudo_random.h"
+
 //==============================================================================
 // api
 //==============================================================================
@@ -200,4 +202,8 @@ bool grvgm_mouse_drag_started_in_rect(rect_i32 rect) {
 		return true;
 	}
 	return false;
+}
+
+f32 grvgm_random_f32(void) {
+	return grv_pseudo_random_f32();
 }

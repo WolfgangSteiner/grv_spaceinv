@@ -205,7 +205,7 @@ void draw_beat_time(transport_state_t* state, rect_i32 status_bar_rect) {
 }
 
 void draw_play_button(rect_i32 rect, transport_state_t* state) {
-	i32 sprite_idx = state->is_playing ? 5 : 4;
+	i32 sprite_idx = state->is_playing ? 6 : 5;
 	grvgm_sprite_t spr = {
 		.index = sprite_idx,
 	};
@@ -213,6 +213,25 @@ void draw_play_button(rect_i32 rect, transport_state_t* state) {
 	if (grvgm_mouse_click_in_rect(rect, GRVGM_BUTTON_MOUSE_LEFT)) {
 		state->is_playing = !state->is_playing;
 	}
+}
+
+void draw_waveform_button(rect_i32 rect, oscillator_t* osc) {
+	rect_i32 button_rect = {.w=11, .h=11};
+	button_rect = rect_i32_align_to_rect(button_rect, rect, GRV_ALIGNMENT_CENTER_LEFT);
+	if (grvgm_mouse_click_in_rect(button_rect, GRVGM_BUTTON_MOUSE_LEFT)) {
+		osc->wave_type = (osc->wave_type + 1) % WAVE_TYPE_COUNT;
+	}
+	rect_i32 icon_rect = {.w=7,.h=7};
+	icon_rect = rect_i32_align_to_rect(icon_rect, button_rect, GRV_ALIGNMENT_CENTER);
+	grvgm_sprite_t icon_spr = {
+		.index = osc->wave_type,
+	};
+	grvgm_draw_sprite(rect_i32_pos(icon_rect), icon_spr);
+	grvgm_draw_rect_chamfered(button_rect, 5);
+}
+
+void draw_osc_gui(rect_i32 rect, oscillator_t* osc) {
+	draw_waveform_button(rect, osc);
 }
 
 void draw_envelope_gui(rect_i32 rect, envelope_t* env) {
@@ -231,7 +250,14 @@ void draw_envelope_gui(rect_i32 rect, envelope_t* env) {
 void draw_synth_gui(rect_i32 rect, synth_state_t* state) {
 	simple_synth_t* synth = &state->tracks.arr[state->selected_track].synth;
 	envelope_t* env = &synth->envelope;
-	draw_envelope_gui(rect, env);
+	rect_i32 row1, row2, row3, row4;
+	rect_i32_split_vertically(rect, 1, &row1, 3, &rect);
+	rect_i32_split_vertically(rect, 1, &row2, 2, &rect);
+	rect_i32_split_vertically(rect, 1, &row3, 1, &rect);
+	row4 = rect;
+
+	draw_osc_gui(row1, &synth->oscillator);
+	draw_envelope_gui(row2, env);
 }
 
 void on_draw(void* state) {
