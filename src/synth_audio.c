@@ -173,7 +173,7 @@ void envelope_init(envelope_t* envelope) {
 	};
 }
 
-f32* process_envelope(f32 gate, bool trigger_received, envelope_t* env, grv_arena_t* arena) {
+f32* envelope_process(f32 gate, bool trigger_received, envelope_t* env, grv_arena_t* arena) {
 	envelope_state_t* state = &env->state;
 	
 	if (env->attack.value != env->attack._prev_value) {
@@ -259,7 +259,7 @@ f32* fill_phase_buffer(f32* phase_diff, f32* phase_state, grv_arena_t* arena) {
 	return outptr;
 }
 
-f32* sine_osc(grv_arena_t* arena, f32* phase) {
+f32* oscillator_render_sine(f32* phase, grv_arena_t* arena) {
 	f32* outptr = arena_alloc_buffer(arena);
 	f32* dst = outptr;
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
@@ -341,7 +341,7 @@ void copy_audio_frame(f32* dst, f32* src) {
 	memcpy(dst, src, AUDIO_FRAME_SIZE * sizeof(f32));
 }
 
-void process_transport(transport_state_t* state) {
+void transport_process(transport_state_t* state) {
 	if (state->is_playing) {
 		if (state->_was_playing) {
 			f64 pulse_time = state->pulse_time;
@@ -367,7 +367,7 @@ grv_arena_t* get_arena(synth_state_t* state) {
 	return &state->transient.audio_arena;
 }
 
-note_event_t* process_sequencer(synth_state_t* state) {
+note_event_t* sequencer_process(synth_state_t* state) {
 	grv_arena_t* arena = get_arena(state);
 	i32 num_patterns = state->patterns.size;
 	sequencer_state_t* sequencer_state = &state->sequencer_state;
@@ -494,11 +494,11 @@ f32* process_oscillator(
 	case WAVE_TYPE_NOISE:
 		return oscillatr_render_noise(arena);
 	default:
-		return sine_osc(arena, phase);
+		return oscillator_render_sine(phase, arena);
 	}
 }
 
-void process_simple_synth(
+void simple_synth_process(
 	f32* buffer_l,
 	f32* buffer_r,
 	simple_synth_t* synth,
@@ -514,7 +514,7 @@ void process_simple_synth(
 	f32* phase_diff = fill_phase_diff_buffer(freq, arena);
 	f32* phase = fill_phase_buffer(phase_diff, &synth->phase_state, arena);
 	f32* mono_buffer = process_oscillator(&synth->oscillator, phase, phase_diff, arena);
-	f32* amp_env = process_envelope(
+	f32* amp_env = envelope_process(
 		synth->note_proc.gate,
 		synth->note_proc.trigger_received,
 		&synth->envelope,
@@ -546,7 +546,7 @@ void process_volume(f32* buffer_l, f32* buffer_r, audio_parameter_t* vol, grv_ar
 	grv_arena_pop_frame(arena);
 }
 
-void process_track(
+void track_process(
 	f32* out_l,
 	f32* out_r,
 	synth_track_t* track,
@@ -555,7 +555,7 @@ void process_track(
 	grv_arena_push_frame(arena);
 	f32* buffer_l = arena_alloc_buffer(arena);
 	f32* buffer_r = arena_alloc_buffer(arena);
-	process_simple_synth(buffer_l, buffer_r, &track->synth, note_event, arena);
+	simple_synth_process(buffer_l, buffer_r, &track->synth, note_event, arena);
 	//process_volume(buffer_l, buffer_r, &track->output.volume, arena);
 	process_add_to_buffer(out_l, buffer_l);
 	process_add_to_buffer(out_r, buffer_r);
@@ -651,12 +651,12 @@ void on_audio(void* state, i16* stream, i32 num_frames) {
 		audio_buffer_clear(out_l);
 		audio_buffer_clear(out_r);
 
-		process_transport(&synth_state->transport);
-		note_event_t* note_event_buffer = process_sequencer(synth_state);
+		transport_process(&synth_state->transport);
+		note_event_t* note_event_buffer = sequencer_process(synth_state);
 		
 		for (i32 track_idx = 0; track_idx < num_tracks; track_idx++) {
 			synth_track_t* track = &synth_state->tracks.arr[track_idx];
-			process_track(out_l, out_r, track, &note_event_buffer[track_idx], arena);
+			track_process(out_l, out_r, track, &note_event_buffer[track_idx], arena);
 		}
 
 		process_volume(out_l, out_r, &synth_state->master_volume, arena);
