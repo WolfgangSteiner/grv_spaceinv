@@ -4,9 +4,10 @@
 #include "grvgm.h"
 #include "grv/grv_arena.h"
 #include "grv/grv_math.h"
+#include "synth_base.h"
+#include "audio_parameter.h"
+#include "synth_filter.h"
 
-#define AUDIO_FRAME_SIZE 32
-#define PPQN 24
 #define NUM_TRACKS 8
 
 typedef struct {
@@ -15,7 +16,6 @@ typedef struct {
 	i32 length; // [ppqn]
 	f32 amplitude;
 } synth_pattern_step_t;
-
 
 typedef enum {
 	NOTE_EVENT_NONE,
@@ -48,27 +48,6 @@ typedef struct {
 	f32 amp_state;
 	f32 phase_state;
 } synth_engine_state_t;
-
-typedef enum {
-	MAPPING_TYPE_LINEAR,
-	MAPPING_TYPE_LOG,
-	MAPPING_TYPE_DB,
-	MAPPING_TYPE_VOLUME,
-	MAPPING_TYPE_LOG_TIME,
-} mapping_type_t;
-
-
-typedef struct {
-	f32 value;
-	f32 min_value;
-	f32 max_value;
-	f32 smoothed_value;
-	f32 smoothing_coefficient;
-	f32 sensitivity;
-	f32 _initial_drag_value;
-	mapping_type_t mapping_type;
-	f32 _prev_value;
-} audio_parameter_t;
 
 typedef struct {
 	grv_arena_t audio_arena;
@@ -129,6 +108,7 @@ typedef struct {
 typedef struct {
 	note_processor_t note_proc;
 	oscillator_t oscillator;
+	synth_filter_t filter;
 	envelope_t envelope;
 	audio_parameter_t vol;
 	audio_parameter_t pan;

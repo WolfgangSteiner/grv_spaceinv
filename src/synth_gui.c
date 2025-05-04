@@ -2,6 +2,71 @@
 #include "grvgm.h"
 #include <stdio.h>
 
+typedef struct {
+	i32 capacity;
+	i32 size;
+	rect_i32 arr[];
+} layout_stack_t;
+
+
+void layout_stack_push(layout_stack_t* s, rect_i32 r) {
+	grv_assert(s->size < s->capacity);
+	s->arr[s->size++] = r;
+}
+
+layout_stack_t* layout_stack_init(rect_i32 r) {
+	i32 capacity = 64;
+	layout_stack_t* s = grvgm_draw_arena_alloc(
+		sizeof(layout_stack_t) + sizeof(rect_i32) * capacity);
+	s->size = 0;
+	s->capacity = capacity;
+	layout_stack_push(s, r);
+	return s;
+}
+
+rect_i32 layout_stack_pop(layout_stack_t*s) {
+	grv_assert(s->size);
+	return s->arr[--s->size];
+}
+
+rect_i32 layout_stack_vsplit_top(layout_stack_t* s, i32 height, i32 gap) {
+	rect_i32 r = layout_stack_pop(s);
+	rect_i32 r1 = {.x=r.x, .y=r.y, .w=r.w, .h=height};
+	rect_i32 r2 = {.x=r.x, .y=r.y+height+gap, .w=r.w, .h=r.h-height-gap};
+	layout_stack_push(s, r2);
+	return r1;
+}
+
+rect_i32 layout_stack_vsplit_bottom(layout_stack_t* s, i32 height, i32 gap) {
+	rect_i32 r = layout_stack_pop(s);
+	rect_i32 r1 = {.x=r.x, .y=r.y, .w=r.w, .h=r.h-gap-height};
+	rect_i32 r2 = {.x=r.x, .y=r.y+r.h-height, .w=r.w, .h=height};
+	layout_stack_push(s, r1);
+	return r2;
+}
+
+rect_i32 layout_stack_hsplit_left(layout_stack_t* s, i32 width, i32 gap) {
+	rect_i32 r = layout_stack_pop(s);
+	rect_i32 r1 = {.x=r.x, .y=r.y, .w=width, .h=r.h};
+	rect_i32 r2 = {.x=r.x+width+gap, .y=r.y, .w=r.w-width-gap, .h=r.h};
+	layout_stack_push(s, r2);
+	return r1;
+}
+
+void layout_stack_vtile(layout_stack_t* s, i32 n, i32 gap) {
+	rect_i32 r = layout_stack_pop(s);
+	i32 height = (r.h - (n-1) * gap) / n;
+	i32 remaining_height = r.h - (n-1) * (height+gap);
+	r.y = (n-1)*(height+gap)+1;
+	r.h = remaining_height;
+	layout_stack_push(s, r);
+	r.h = height;
+	for (i32 i = 0; i < n-1; i++) {
+		r.y -= gap + height;
+		layout_stack_push(s, r);
+	}
+}
+
 void draw_trigger_button(
 	rect_i32 r, 
 	synth_pattern_step_t* step,
@@ -92,6 +157,8 @@ f32 slider_map_value_from_gui(f32 val, audio_parameter_t* p) {
 		return p->min_value + (p->max_value - p->min_value) * powf(val, 1.0f/3.0f);
 	case MAPPING_TYPE_LOG_TIME:
 		return p->min_value * powf(p->max_value / p->min_value, val);
+	case MAPPING_TYPE_LOG:
+		return p->min_value * powf(p->max_value / p->min_value, val);
 	default:
 		return p->min_value + (p->max_value - p->min_value) * val;
 	}
@@ -111,6 +178,8 @@ f32 slider_map_value_to_gui(audio_parameter_t* p) {
 		return powf(rel_value, 3.0f);
 	case MAPPING_TYPE_LOG_TIME:
 		return p->value == 0.0f ? 0.0f : log10f(p->value/p->min_value) / log10f(p->max_value/p->min_value);
+	case MAPPING_TYPE_LOG:
+		return log10f(p->value/p->min_value) / log10f(p->max_value/p->min_value);
 	default:
 		return rel_value;
 	}
@@ -201,7 +270,7 @@ void draw_rotary_slider(rect_i32 rect, grv_str_t text, i32* value, i32 min_value
 void draw_beat_time(transport_state_t* state, rect_i32 status_bar_rect) {
 	char str[32];
 	snprintf(str, 32, "%d.%d.%02d", state->bar, state->beat, state->pulse);
-	grvgm_draw_text_aligned(status_bar_rect, grv_str_ref(str), GRV_ALIGNMENT_TOP_RIGHT, 6);
+	grvgm_draw_text_aligned(status_bar_rect, grv_str_ref(str), GRV_ALIGNMENT_CENTER_RIGHT, 6);
 }
 
 void draw_play_button(rect_i32 rect, transport_state_t* state) {
@@ -236,51 +305,54 @@ void draw_osc_gui(rect_i32 rect, oscillator_t* osc) {
 
 void draw_envelope_gui(rect_i32 rect, envelope_t* env) {
 	rect_i32 slider_rect = {.w=4,.h=16};
-	i32 gap = 2;
-	slider_rect = rect_i32_align_to_rect(slider_rect, rect, GRV_ALIGNMENT_TOP_LEFT);
-	draw_rect_slider2(slider_rect, "A", &env->attack);
-	slider_rect = rect_i32_clone_right(slider_rect, gap);
-	draw_rect_slider2(slider_rect, "D", &env->decay);
-	slider_rect = rect_i32_clone_right(slider_rect, gap);
-	draw_rect_slider2(slider_rect, "S", &env->sustain);
-	slider_rect = rect_i32_clone_right(slider_rect, gap);
-	draw_rect_slider2(slider_rect, "R", &env->release);
+	i32 w = 4;
+	i32 gap = 1;
+	layout_stack_t* s = layout_stack_init(rect);
+	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "A", &env->attack);
+	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "D", &env->decay);
+	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "S", &env->sustain);
+	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "R", &env->release);
 }
 
-void draw_synth_gui(rect_i32 rect, synth_state_t* state) {
+void draw_filter_gui(rect_i32 rect, synth_filter_t* filter) {
+	rect_i32 slider_rect = {.w=4,.h=16};
+	i32 w = 4;
+	i32 gap = 1;
+	layout_stack_t* s = layout_stack_init(rect);
+	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "F", &filter->f);
+	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "Q", &filter->q);
+}
+
+void draw_synth_gui(layout_stack_t* s, synth_state_t* state) {
 	simple_synth_t* synth = &state->tracks.arr[state->selected_track].synth;
 	envelope_t* env = &synth->envelope;
-	rect_i32 row1, row2, row3, row4;
-	rect_i32_split_vertically(rect, 1, &row1, 3, &rect);
-	rect_i32_split_vertically(rect, 1, &row2, 2, &rect);
-	rect_i32_split_vertically(rect, 1, &row3, 1, &rect);
-	row4 = rect;
-
-	draw_osc_gui(row1, &synth->oscillator);
-	draw_envelope_gui(row2, env);
+	draw_osc_gui(layout_stack_vsplit_top(s, 11, 1), &synth->oscillator);
+	draw_filter_gui(layout_stack_vsplit_top(s, 16, 1), &synth->filter);	
+	draw_envelope_gui(layout_stack_vsplit_top(s, 16, 1), env);
 }
 
 void on_draw(void* state) {
 	synth_state_t* synth_state = state;
 	grvgm_clear_screen(0);
-	
+	layout_stack_t* layout_stack = layout_stack_init(grvgm_screen_rect());
 	rect_i32 screen_rect = grvgm_screen_rect();
-	rect_i32 status_bar_rect = {.w=screen_rect.w, .h=screen_rect.h/16 };
-	rect_i32 content_rect = {.y=status_bar_rect.h, .w=screen_rect.w, .h=screen_rect.h - status_bar_rect.h };
-
+	
+	rect_i32 status_bar_rect = layout_stack_vsplit_top(layout_stack, 7, 2);
 	draw_track_buttons(status_bar_rect, synth_state);
-
 	draw_play_button(
 		rect_i32_align_to_rect((rect_i32){.w=7,.h=7}, status_bar_rect, GRV_ALIGNMENT_HORIZONTAL_CENTER),
 		&synth_state->transport
 	);
 	draw_beat_time(&synth_state->transport, status_bar_rect);
 
+	rect_i32 trigger_rect = layout_stack_vsplit_bottom(layout_stack, 7, 1);
+	rect_i32 content_rect = {.y=status_bar_rect.h, .w=screen_rect.w, .h=screen_rect.h - status_bar_rect.h };
+
 	rect_i32 slider_rect = {.w=11,.h=16};
 	slider_rect = rect_i32_align_to_rect(slider_rect, content_rect, GRV_ALIGNMENT_TOP_RIGHT);
 	draw_rect_slider2(slider_rect, "VOL", &synth_state->master_volume);
 
-	draw_synth_gui(content_rect, synth_state);
-	draw_pattern_triggers(content_rect, synth_state);
+	draw_synth_gui(layout_stack, synth_state);
+	draw_pattern_triggers(trigger_rect, synth_state);
 }
 

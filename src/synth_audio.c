@@ -1,18 +1,6 @@
 #include "src/synth.h"
 #include "SDL2/SDL.h"
-
-f32* arena_alloc_buffer(grv_arena_t* arena) {
-	return grv_arena_alloc(arena, AUDIO_FRAME_SIZE*sizeof(f32));
-}
-
-f32* arena_alloc_zero_buffer(grv_arena_t* arena) {
-	f32* buffer = arena_alloc_buffer(arena);
-	memset(buffer, 0, AUDIO_FRAME_SIZE*sizeof(f32));
-	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-		buffer[i] = 0.0f;
-	}
-	return buffer;
-}
+#include "synth_dsp.h"
 
 f32 note_value_to_frequency(i32 note_value) {
 	return 440.0f * powf(2.0f, (note_value - 69) / 12.0f);
@@ -69,21 +57,6 @@ void audio_buffer_from_db(f32* dst, f32* src) {
 }
 
 
-f32* smooth_audio_parameter(audio_parameter_t* p, grv_arena_t* arena) {
-	f32* outptr = arena_alloc_buffer(arena);
-	f32* dst = outptr;
-	f32 y = p->smoothed_value;
-	f32 y_target = p->value;
-	f32 alpha = p->smoothing_coefficient == 0.0f ? 0.01 : p->smoothing_coefficient;
-	f32 a = 1.0f - alpha;
-	f32 b = alpha;
-	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-		y = y * a + y_target * b;
-		*dst++ = y;
-	}
-	p->smoothed_value = y;
-	return outptr;
-}
 
 f32* smooth_value(f32 y_target, f32* y_state, f32 alpha, grv_arena_t* arena){
 	f32* outptr = arena_alloc_buffer(arena);
@@ -465,6 +438,7 @@ void simple_synth_init(simple_synth_t* synth) {
 			.mapping_type = MAPPING_TYPE_LINEAR,
 		},
 	};
+	synth_filter_init(&synth->filter);
 	envelope_init(&synth->envelope);
 	note_processor_init(&synth->note_proc);
 }
@@ -513,17 +487,20 @@ void simple_synth_process(
 		arena);
 	f32* phase_diff = fill_phase_diff_buffer(freq, arena);
 	f32* phase = fill_phase_buffer(phase_diff, &synth->phase_state, arena);
-	f32* mono_buffer = process_oscillator(&synth->oscillator, phase, phase_diff, arena);
+	f32* signal_buffer = process_oscillator(&synth->oscillator, phase, phase_diff, arena);
+
+	synth_filter_process(signal_buffer, signal_buffer, &synth->filter, arena);
+
 	f32* amp_env = envelope_process(
 		synth->note_proc.gate,
 		synth->note_proc.trigger_received,
 		&synth->envelope,
 		arena);
-	process_mul(mono_buffer, mono_buffer, amp_env);
-	//f32* pan = smooth_audio_parameter(&synth->pan, arena);
-	//process_mono_to_stereo(buffer_l, buffer_r, mono_buffer, pan);
-	audio_buffer_copy(buffer_l, mono_buffer);
-	audio_buffer_copy(buffer_r, mono_buffer);
+	process_mul(signal_buffer, signal_buffer, amp_env);
+	//f32* pan = audio_parameter_smooth(&synth->pan, arena);
+	//process_mono_to_stereo(buffer_l, buffer_r, signal_buffer, pan);
+	audio_buffer_copy(buffer_l, signal_buffer);
+	audio_buffer_copy(buffer_r, signal_buffer);
 	grv_arena_pop_frame(arena);
 }
 
@@ -539,7 +516,7 @@ f32* process_volume_to_amp(f32* volume_buffer, grv_arena_t* arena) {
 
 void process_volume(f32* buffer_l, f32* buffer_r, audio_parameter_t* vol, grv_arena_t* arena) {
 	grv_arena_push_frame(arena);
-	f32* amp_db = smooth_audio_parameter(vol, arena);
+	f32* amp_db = audio_parameter_smooth(vol, arena);
 	f32* amp = process_volume_to_amp(amp_db, arena);
 	process_mul(buffer_l, buffer_l, amp);
 	process_mul(buffer_r, buffer_r, amp);
@@ -607,7 +584,6 @@ void pattern_init(synth_pattern_t* pattern) {
 		};
 	}
 }
-
 
 void synth_state_init(synth_state_t* state) {
 	i32 num_tracks = 8;

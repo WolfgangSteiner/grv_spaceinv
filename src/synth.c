@@ -3,6 +3,12 @@
 #include "src/synth.h"
 #include <stdio.h>
 
+#include "src/audio_parameter.c"
+#include "src/synth_audio.c"
+#include "src/synth_dsp.c"
+#include "src/synth_filter.c"
+#include "src/synth_gui.c"
+
 void on_init(void** game_state, size_t* size) {
 	synth_state_t* synth_state = grv_alloc_zeros(sizeof(synth_state_t));
 	synth_state_init(synth_state);

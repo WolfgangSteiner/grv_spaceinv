@@ -129,6 +129,7 @@ int _grvgm_load_game_code(void) {
 	_grvgm_state.lib_handle = SDL_LoadObject(_grvgm_state.dynamic_library_name);
 	if (_grvgm_state.lib_handle == NULL) {
 		printf("[ERROR] Could not open dynamic library %s.\n", _grvgm_state.dynamic_library_name);
+		printf("        %s\n", SDL_GetError());
 		exit(1);
 	}
 
