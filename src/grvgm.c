@@ -19,23 +19,23 @@ typedef void (*grvgm_on_audio_func)(void*, i16*, i32);
 
 typedef struct {
 	u64 game_time_ms;
-	i32 frame_index;
-    i32 offset;
-    i32 size;
+	i64 frame_index;
+    i64 offset;
+    i64 size;
 } grvgm_frame_info_t;
 
 typedef struct {
-	i32 current_frame_index;
+	i64 current_frame_index;
     struct {
-        i32 capacity;
-        i32 initial_capacity;
-        i32 size;
+        i64 capacity;
+        i64 initial_capacity;
+        i64 size;
         u8* data;
     } frame_data;
     struct {
-        i32 capacity;
-        i32 initial_capacity;
-        i32 size;
+        i64 capacity;
+        i64 initial_capacity;
+        i64 size;
         grvgm_frame_info_t* arr;
     } frame_info_data;
 } grvgm_game_state_store_t;
