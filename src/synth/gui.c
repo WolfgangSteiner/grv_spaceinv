@@ -1,4 +1,4 @@
-#include "src/synth.h"
+#include "synth.h"
 #include "grvgm.h"
 #include <stdio.h>
 

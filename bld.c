@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
 	grvbld_build_target(config, spaceinv);
 
 	grvbld_target_t* lib_synth = grvbld_target_create_dynamic_library("synth");
-	grvbld_target_add_src(lib_synth, "src/synth.c");
+	grvbld_target_add_src(lib_synth, "src/synth/synth.c");
 	//grvbld_target_link_libraries(lib_synth, "grv", "grvgfx", "grvgm");
 	grvbld_build_target(config, lib_synth);
 

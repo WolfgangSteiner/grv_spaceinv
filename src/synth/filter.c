@@ -1,4 +1,4 @@
-#include "synth_filter.h"
+#include "filter.h"
 #include "synth_base.h"
 #include "grv/grv_math.h"
 
@@ -14,7 +14,6 @@ void synth_filter_process(
 	f32 z22 = filter->state[1].z2;
 
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-	#if 1
 		f32 w = 2.0f * tanf(PI_F32 * (*f++)/AUDIO_SAMPLE_RATE);
 		f32 a = w / (*q++);
 		f32 b = w * w;
@@ -31,9 +30,6 @@ void synth_filter_process(
 		z22 += c2 * z21;
 		(*dst++) = d0 * x2 + z22;
 		z21 += c1 * x2;
-	#else
-		*dst++ = *src++;
-	#endif
 	}
 
 	filter->state[0].z1 = z11;

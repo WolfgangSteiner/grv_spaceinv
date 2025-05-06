@@ -1,9 +1,9 @@
 #include "audio_parameter.h"
 #include "synth_base.h"
-#include "synth_dsp.h"
+#include "dsp.h"
 
 f32* audio_parameter_smooth(audio_parameter_t* p, grv_arena_t* arena) {
-	f32* outptr = arena_alloc_buffer(arena);
+	f32* outptr = audio_buffer_alloc(arena);
 	f32* dst = outptr;
 	f32 y = p->smoothed_value;
 	f32 y_target = p->value;
