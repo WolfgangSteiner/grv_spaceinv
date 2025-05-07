@@ -9,6 +9,9 @@ typedef struct {
 	note_processor_t note_proc;
 	oscillator_t oscillator;
 	synth_filter_t filter;
+	envelope_t filter_envelope;
+	audio_parameter_t filter_envelope_to_frequency;
+	audio_parameter_t filter_envelope_to_resonance;
 	envelope_t envelope;
 	audio_parameter_t vol;
 	audio_parameter_t pan;

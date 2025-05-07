@@ -1,20 +1,21 @@
 #include "filter.h"
 #include "synth_base.h"
 #include "grv/grv_math.h"
+#include "dsp.h"
 
 void synth_filter_process(
-	f32* dst, f32* src, synth_filter_t* filter, grv_arena_t* arena) {
+	f32* dst, f32* src, synth_filter_t* filter, f32* f, f32* q, grv_arena_t* arena) {
 	grv_arena_push_frame(arena);
-	f32* f = audio_parameter_smooth(&filter->f, arena);
-	f32* q = audio_parameter_smooth(&filter->q, arena);
 
 	f32 z11 = filter->state[0].z1;
 	f32 z12 = filter->state[0].z2;
 	f32 z21 = filter->state[1].z1;
 	f32 z22 = filter->state[1].z2;
+	f32 f_min = filter->f.min_value;
 
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-		f32 w = 2.0f * tanf(PI_F32 * (*f++)/AUDIO_SAMPLE_RATE);
+		f32 f_hz = log_to_freq(*f++, f_min);
+		f32 w = 2.0f * tanf(PI_F32 * f_hz/AUDIO_SAMPLE_RATE);
 		f32 a = w / (*q++);
 		f32 b = w * w;
 		f32 c1 = (a + b) / (1.0f + a/2.0f + b/4.0f);
@@ -46,7 +47,7 @@ void synth_filter_init(synth_filter_t* filter) {
 			.value = 2000.0f,
 			.min_value = 20.0f,
 			.max_value = 20000.0f,
-			.mapping_type = MAPPING_TYPE_LOG,
+			.mapping_type = MAPPING_TYPE_LOG_FREQUENCY,
 		},
 		.q = {
 			.value = 1.0f,

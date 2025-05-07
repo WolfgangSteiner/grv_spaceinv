@@ -68,6 +68,16 @@ void audio_buffer_from_db(f32* dst, f32* src) {
 	}
 }
 
+f32* audio_buffer_modulate_add(f32* signal, f32* mod, f32 amount, f32 min_value, f32 max_value, grv_arena_t* arena) {
+	f32* out = audio_buffer_alloc(arena);
+	f32* dst = out;
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		f32 val = (*signal++) + (*mod++) * amount * (max_value - min_value);
+		(*dst++) = grv_min_f32(grv_max_f32(val, min_value), max_value);
+	}
+	return out;
+}
+
 f32* smooth_value(f32 y_target, f32* y_state, f32 alpha, grv_arena_t* arena){
 	f32* outptr = audio_buffer_alloc(arena);
 	f32* dst = outptr;

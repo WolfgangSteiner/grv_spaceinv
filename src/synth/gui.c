@@ -1,6 +1,7 @@
 #include "synth.h"
 #include "grvgm.h"
 #include <stdio.h>
+#include "dsp.h"
 
 typedef struct {
 	i32 capacity;
@@ -151,13 +152,19 @@ f32 audio_parameter_relative_value(audio_parameter_t* p) {
 }
 
 f32 slider_map_value_from_gui(f32 val, audio_parameter_t* p) {
-	val = grv_clamp_f32(val, 0.0f, 1.0f);
+	if (audio_parameter_is_bipolar(p)) {
+		val = grv_clamp_f32(val, -1.0f, 1.0f);
+	} else {
+		val = grv_clamp_f32(val, 0.0f, 1.0f);
+	}
 	switch (p->mapping_type) {
 	case MAPPING_TYPE_VOLUME:
 		return p->min_value + (p->max_value - p->min_value) * powf(val, 1.0f/3.0f);
 	case MAPPING_TYPE_LOG_TIME:
 		return p->min_value * powf(p->max_value / p->min_value, val);
 	case MAPPING_TYPE_LOG:
+		return p->min_value * powf(p->max_value / p->min_value, val);
+	case MAPPING_TYPE_LOG_FREQUENCY:
 		return p->min_value * powf(p->max_value / p->min_value, val);
 	default:
 		return p->min_value + (p->max_value - p->min_value) * val;
@@ -173,6 +180,9 @@ f32 slider_map_value_from_gui(f32 val, audio_parameter_t* p) {
 
 f32 slider_map_value_to_gui(audio_parameter_t* p) {
 	f32 rel_value = audio_parameter_relative_value(p);
+	if (audio_parameter_is_bipolar(p)) {
+		rel_value = 2.0f * rel_value - 1.0f;
+	}
 	switch (p->mapping_type) {
 	case MAPPING_TYPE_VOLUME:
 		return powf(rel_value, 3.0f);
@@ -180,6 +190,8 @@ f32 slider_map_value_to_gui(audio_parameter_t* p) {
 		return p->value == 0.0f ? 0.0f : log10f(p->value/p->min_value) / log10f(p->max_value/p->min_value);
 	case MAPPING_TYPE_LOG:
 		return log10f(p->value/p->min_value) / log10f(p->max_value/p->min_value);
+	case MAPPING_TYPE_LOG_FREQUENCY:
+		return freq_to_log(p->value, p->min_value) / freq_to_log(p->max_value, p->min_value);
 	default:
 		return rel_value;
 	}
@@ -220,6 +232,29 @@ void draw_track_buttons(rect_i32 rect, synth_state_t* state) {
 	}
 }
 
+void draw_rect_slider_value_rect(rect_i32 slider_rect, audio_parameter_t* p) {
+	rect_i32 value_rect = rect_i32_shrink(slider_rect, 1, 1);
+	f32 display_value = 
+		audio_parameter_is_bipolar(p)
+		? (value_rect.h / 2) * slider_map_value_to_gui(p)
+		: value_rect.h * slider_map_value_to_gui(p);
+	i32 display_value_px = grv_round_f32(display_value);
+	
+	if (audio_parameter_is_bipolar(p)) {
+		if (display_value_px >= 0) {
+			value_rect.y = value_rect.y + value_rect.h/2 - display_value_px;
+		} else {
+			value_rect.y = value_rect.h/2;
+		}
+	} else {
+		value_rect.y = rect_i32_ymax(value_rect) - display_value_px + 1;
+	}
+
+	value_rect.h = display_value_px;
+
+	grvgm_fill_rect(value_rect, 9);
+}
+
 void draw_rect_slider2(rect_i32 rect, char* label, audio_parameter_t* p) {
 	GRV_UNUSED(label);
 	rect_i32 slider_rect = {0, 0, 4, 10};
@@ -238,16 +273,23 @@ void draw_rect_slider2(rect_i32 rect, char* label, audio_parameter_t* p) {
 		p->_initial_drag_value = GRV_MAX_F32;
 	}
 
-	f32 display_value = (slider_rect.h - 2.0f) * slider_map_value_to_gui(p);
-	i32 num_px = grv_round_f32(display_value);
 	grvgm_draw_rect(slider_rect, frame_color);
-	rect_i32 value_rect = {slider_rect.x + 1, slider_rect.y + 1 + (8 - num_px), slider_rect.w-2, num_px};
-	grvgm_fill_rect(value_rect, 9);
+	draw_rect_slider_value_rect(slider_rect, p);
 
-	if (is_in_drag) label = slider_format_value(p);
+	if (is_in_drag) {
+		label = slider_format_value(p);
+	}
 	rect_i32 label_rect = rect_i32_align_to_rect(grvgm_text_rect(grv_str_ref(label)), slider_rect, GRV_ALIGNMENT_BELOW_CENTER);
 	label_rect.y += 1;
-	grvgm_draw_text_aligned(label_rect, grv_str_ref(label), GRV_ALIGNMENT_CENTER, 7);
+	if (is_in_drag) {
+		grvgm_draw_text_floating(
+			rect_i32_pos(label_rect),
+			grv_str_ref(label),
+			7
+		);
+	} else {
+		grvgm_draw_text_aligned(label_rect, grv_str_ref(label), GRV_ALIGNMENT_CENTER, 7);
+	}
 }
 
 void draw_rotary_slider(rect_i32 rect, grv_str_t text, i32* value, i32 min_value, i32 max_value) {
@@ -314,20 +356,24 @@ void draw_envelope_gui(rect_i32 rect, envelope_t* env) {
 	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "R", &env->release);
 }
 
-void draw_filter_gui(rect_i32 rect, synth_filter_t* filter) {
+void draw_filter_gui(rect_i32 rect, simple_synth_t* synth) {
+	synth_filter_t* filter = &synth->filter;
 	rect_i32 slider_rect = {.w=4,.h=16};
 	i32 w = 4;
 	i32 gap = 1;
 	layout_stack_t* s = layout_stack_init(rect);
 	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "F", &filter->f);
 	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "Q", &filter->q);
+	draw_envelope_gui(layout_stack_hsplit_left(s, 20, gap), &synth->filter_envelope);
+	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "MF", &synth->filter_envelope_to_frequency);
+	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "MQ", &synth->filter_envelope_to_resonance);
 }
 
 void draw_synth_gui(layout_stack_t* s, synth_state_t* state) {
 	simple_synth_t* synth = &state->tracks.arr[state->selected_track].synth;
 	envelope_t* env = &synth->envelope;
 	draw_osc_gui(layout_stack_vsplit_top(s, 11, 1), &synth->oscillator);
-	draw_filter_gui(layout_stack_vsplit_top(s, 16, 1), &synth->filter);	
+	draw_filter_gui(layout_stack_vsplit_top(s, 16, 1), synth);	
 	draw_envelope_gui(layout_stack_vsplit_top(s, 16, 1), env);
 }
 

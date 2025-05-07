@@ -7,6 +7,7 @@
 typedef enum {
 	MAPPING_TYPE_LINEAR,
 	MAPPING_TYPE_LOG,
+	MAPPING_TYPE_LOG_FREQUENCY,
 	MAPPING_TYPE_DB,
 	MAPPING_TYPE_VOLUME,
 	MAPPING_TYPE_LOG_TIME,
@@ -25,5 +26,6 @@ typedef struct {
 } audio_parameter_t;
 
 f32* audio_parameter_smooth(audio_parameter_t* p, grv_arena_t* arena);
+bool audio_parameter_is_bipolar(audio_parameter_t* p);
 
 #endif

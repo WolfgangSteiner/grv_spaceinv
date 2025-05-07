@@ -7,6 +7,10 @@ f32* audio_parameter_smooth(audio_parameter_t* p, grv_arena_t* arena) {
 	f32* dst = outptr;
 	f32 y = p->smoothed_value;
 	f32 y_target = p->value;
+	if (p->mapping_type == MAPPING_TYPE_LOG_FREQUENCY) {
+		y_target = freq_to_log(p->value, p->min_value);
+	}
+
 	f32 alpha = p->smoothing_coefficient == 0.0f ? 0.01 : p->smoothing_coefficient;
 	f32 a = 1.0f - alpha;
 	f32 b = alpha;
@@ -16,4 +20,8 @@ f32* audio_parameter_smooth(audio_parameter_t* p, grv_arena_t* arena) {
 	}
 	p->smoothed_value = y;
 	return outptr;
+}
+
+bool audio_parameter_is_bipolar(audio_parameter_t* p) {
+	return p->min_value < 0.0f && p->min_value == -p->max_value;
 }

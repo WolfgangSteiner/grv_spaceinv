@@ -21,6 +21,6 @@ typedef struct {
 } synth_filter_t;
 
 void synth_filter_init(synth_filter_t* filter);
-void synth_filter_process(f32* dst, f32* src, synth_filter_t* filter, grv_arena_t* arena);
+void synth_filter_process(f32* dst, f32* src, synth_filter_t* filter, f32* f, f32* q, grv_arena_t* arena);
 
 #endif

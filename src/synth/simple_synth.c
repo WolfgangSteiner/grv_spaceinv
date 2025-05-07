@@ -18,9 +18,22 @@ void simple_synth_init(simple_synth_t* synth) {
 			.max_value = 1.0f,
 			.mapping_type = MAPPING_TYPE_LINEAR,
 		},
+		.filter_envelope_to_frequency = {
+			.value = 0.0f,
+			.min_value = -1.0f,
+			.max_value = 1.0f,
+			.mapping_type = MAPPING_TYPE_LINEAR,
+		},
+		.filter_envelope_to_resonance = {
+			.value = 0.0f,
+			.min_value = -1.0f,
+			.max_value = 1.0f,
+			.mapping_type = MAPPING_TYPE_LINEAR,
+		}
 	};
 	synth_filter_init(&synth->filter);
 	envelope_init(&synth->envelope);
+	envelope_init(&synth->filter_envelope);
 	note_processor_init(&synth->note_proc);
 }
 
@@ -40,13 +53,25 @@ void simple_synth_process(
 	f32* phase_diff = oscillator_fill_phase_diff_buffer(freq, arena);
 	f32* phase = oscillator_fill_phase_buffer(phase_diff, &synth->phase_state, arena);
 	f32* signal_buffer = oscillator_process(&synth->oscillator, phase, phase_diff, arena);
-
-	synth_filter_process(signal_buffer, signal_buffer, &synth->filter, arena);
-
-	f32* amp_env = envelope_process(
+	f32* filter_env = envelope_process(
+		&synth->filter_envelope,
 		synth->note_proc.gate,
 		synth->note_proc.trigger_received,
+		arena);
+
+	f32* f = audio_parameter_smooth(&synth->filter.f, arena);
+	f32* q = audio_parameter_smooth(&synth->filter.q, arena);
+
+	f32 log_f_min = 0.0f;
+	f32 log_f_max = freq_to_log(synth->filter.f.max_value, synth->filter.f.min_value);
+	f = audio_buffer_modulate_add(f, filter_env, synth->filter_envelope_to_frequency.value, log_f_min, log_f_max, arena);
+
+	synth_filter_process(signal_buffer, signal_buffer, &synth->filter, f, q, arena);
+
+	f32* amp_env = envelope_process(
 		&synth->envelope,
+		synth->note_proc.gate,
+		synth->note_proc.trigger_received,
 		arena);
 	audio_buffer_mul(signal_buffer, signal_buffer, amp_env);
 	//f32* pan = audio_parameter_smooth(&synth->pan, arena);

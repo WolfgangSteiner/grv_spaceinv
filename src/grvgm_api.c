@@ -88,6 +88,9 @@ typedef struct {
 
 void _grvgm_draw_text_floating(void* data) {
 	_grvgm_draw_text_floating_t* string_data = data;
+	rect_i32 text_rect = grvgm_text_rect(string_data->str);
+	text_rect = rect_i32_move_to(text_rect, string_data->pos);
+	grvgm_fill_rect(rect_i32_expand(text_rect, 1, 0), 0);
 	grvgm_draw_text(string_data->pos, string_data->str, string_data->color);
 }
 

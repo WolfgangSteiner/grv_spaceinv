@@ -32,6 +32,6 @@ typedef struct {
 } envelope_t;
 
 void envelope_init(envelope_t* envelope);
-f32* envelope_process(f32 gate, bool trigger_received, envelope_t* env, grv_arena_t* arena);
+f32* envelope_process(envelope_t* env, f32 gate, bool trigger_received, grv_arena_t* arena);
 
 #endif
