@@ -50,9 +50,6 @@ typedef struct {
 	grv_window_t* window;
 	grv_framebuffer_t* framebuffer;
 	grv_bitmap_font_t* font;
-	grv_spritesheet8_t spritesheet;
-	u64 spritesheet_mod_time;
-	u64 spritesheet_timestamp;
 	u64 timestamp;
 	void* lib_handle;
 	u64 game_time_ms;
@@ -66,11 +63,18 @@ typedef struct {
     grvgm_game_state_store_t game_state_store;
 	grv_str_t executable_path;
 	char* dynamic_library_name;
+	grv_spritesheet8_t spritesheet;
+	u64 spritesheet_mod_time;
+	u64 spritesheet_timestamp;
 	grv_str_t spritesheet_path;
 	struct {
-		bool show_frame_time;
 		i32 fps;
+		i32 sprite_width;
+		i32 screen_width;
+		i32 screen_height;
 		bool pause_enabled;
+		bool show_frame_time;
+		bool use_game_state_store;
 	} options;
 	SDL_AudioDeviceID sdl_audio_device;
 	f64 audio_load;
@@ -81,7 +85,14 @@ typedef struct {
 	} end_of_frame_callback_queue;
 } grvgm_state_t;
 
-static grvgm_state_t _grvgm_state = {.options.fps=60};
+static grvgm_state_t _grvgm_state = {
+	.options = {
+		.screen_width=128,
+		.screen_height=128,
+		.sprite_width=8,
+		.fps=60
+	}
+};
 static u8* _grvgm_previous_keyboard_state = NULL;
 static u8* _grvgm_current_keyboard_state = NULL;
 static u8* _grvgm_block_keyboard_state = NULL;
@@ -343,8 +354,9 @@ u64 _grvgm_spritesheet_mod_time(void) {
 
 void _grvgm_load_spritesheet(void) {
 	grv_log_info(grv_str_ref("Loading sprite sheet."));
-	_grvgm_state.spritesheet.spr_w = 8;
-	_grvgm_state.spritesheet.spr_h = 8;
+	i32 sprite_width = _grvgm_state.options.sprite_width;
+	_grvgm_state.spritesheet.spr_w = sprite_width;
+	_grvgm_state.spritesheet.spr_h = sprite_width;
 	grv_error_t err;
 	bool success = grv_spritesheet8_load_from_bmp(_grvgm_state.spritesheet_path, &_grvgm_state.spritesheet, &err);
 	if (success == false) {
@@ -499,7 +511,7 @@ void _grvgm_audio_callback(void* userdata, u8* buffer, i32 buffer_num_bytes) {
 	}
 }
 
-void _grvgm_audio_init(void) {
+void _grvgm_init_audio(void) {
 	SDL_Init(SDL_INIT_AUDIO);
     struct SDL_AudioSpec want = {
         .freq = GRVGM_SAMPLE_RATE,
@@ -557,9 +569,17 @@ void _grvgm_init(int argc, char** argv) {
 	}
 	grv_str_free(&dynamic_library_name);
 	grv_str_free(&executable_filename);
-	_grvgm_load_game_code();
+    _grvgm_game_state_store_init();
+	_grvgm_state.draw_arena = grv_alloc_zeros(sizeof(grv_arena_t));
+	grv_arena_init(_grvgm_state.draw_arena, 1 * GRV_MEGABYTES);
+}
+
+void _grvgm_init_gfx() {
 	_grvgm_load_spritesheet();
-	grv_window_t* w = grv_window_new(128,128, 2.0f, grv_str_ref(""));
+	grv_window_t* w = grv_window_new(
+		_grvgm_state.options.screen_width,
+		_grvgm_state.options.screen_height,
+		2.0f, grv_str_ref(""));
 	_grvgm_state.window = w;
 	w->horizontal_align = GRV_WINDOW_HORIZONTAL_ALIGN_RIGHT;
 	w->vertical_align = GRV_WINDOW_VERTICAL_ALIGN_TOP;
@@ -569,9 +589,6 @@ void _grvgm_init(int argc, char** argv) {
 	w->resizable = true;
 	grv_window_show(w);
 	_grvgm_state.font = grvgm_get_small_font();
-    _grvgm_game_state_store_init();
-	_grvgm_state.draw_arena = grv_alloc_zeros(sizeof(grv_arena_t));
-	grv_arena_init(_grvgm_state.draw_arena, 1 * GRV_MEGABYTES);
 }
 
 i32 _grvgm_target_frame_time_ms(void) {
@@ -610,8 +627,10 @@ void _grvgm_execute_end_of_frame_callback_queue() {
 
 int grvgm_main(int argc, char** argv) {
 	_grvgm_init(argc, argv);
+	_grvgm_load_game_code();
 	_grvgm_state.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
-	_grvgm_audio_init();
+	_grvgm_init_gfx();
+	_grvgm_init_audio();
 
 	printf("[INFO] game_state_size: %d (%.2fk/s)\n",
 		   (int)_grvgm_state.game_state_size,

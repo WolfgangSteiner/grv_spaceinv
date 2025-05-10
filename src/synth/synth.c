@@ -21,6 +21,7 @@ grv_arena_t* get_arena(synth_state_t* state) {
 }
 
 void on_init(void** game_state, size_t* size) {
+	grvgm_set_screen_size(256, 256);
 	synth_state_t* synth_state = grv_alloc_zeros(sizeof(synth_state_t));
 	synth_state_init(synth_state);
 	if (synth_state->transient.audio_arena.data == NULL) {

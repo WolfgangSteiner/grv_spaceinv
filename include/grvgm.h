@@ -49,6 +49,12 @@ typedef struct {
     grv_spritesheet8_t* spritesheet;
 } grvgm_sprite_t;
 
+//==============================================================================
+// config
+//==============================================================================
+void grvgm_set_screen_size(i32 w, i32 h);
+void grvgm_set_sprite_size(i32 w);
+void grvgm_set_fps(i32 fps);
 
 //==============================================================================
 // controls

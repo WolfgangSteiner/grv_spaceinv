@@ -210,3 +210,17 @@ bool grvgm_mouse_drag_started_in_rect(rect_i32 rect) {
 f32 grvgm_random_f32(void) {
 	return grv_pseudo_random_f32();
 }
+
+void grvgm_set_screen_size(i32 w, i32 h) {
+	_grvgm_state.options.screen_width = w;
+	_grvgm_state.options.screen_height = h;
+
+}
+
+void grvgm_set_sprite_size(i32 w) {
+	_grvgm_state.options.sprite_width = w;
+}
+
+void grvgm_set_fps(i32 fps) {
+	_grvgm_state.options.fps = fps;
+}
