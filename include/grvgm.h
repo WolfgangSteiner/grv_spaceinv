@@ -55,6 +55,7 @@ typedef struct {
 void grvgm_set_screen_size(i32 w, i32 h);
 void grvgm_set_sprite_size(i32 w);
 void grvgm_set_fps(i32 fps);
+void grvgm_set_use_game_state_store(bool flag);
 
 //==============================================================================
 // controls

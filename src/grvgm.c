@@ -408,6 +408,7 @@ void _grvgm_game_state_store_reset_size(i32 new_frame_index) {
 }
 
 void _grvgm_game_state_push(void) {
+	if (!_grvgm_state.options.use_game_state_store) return;
     grvgm_game_state_store_t* store = &_grvgm_state.game_state_store;
 
 	if (store->current_frame_index < store->frame_info_data.size - 1) {
@@ -656,7 +657,8 @@ int grvgm_main(int argc, char** argv) {
 		if (grvgm_key_was_pressed_with_mod('r', GRVGM_KEYMOD_CTRL)) {
 			_grvgm_load_game_code();
 			grv_log_info_cstr("Reloaded game code.");
-			if (grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT)) {
+			if (_grvgm_state.options.use_game_state_store
+				&& grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT)) {
 				grv_log_info_cstr("Resetting game state.");
 				if (_grvgm_state.game_state) {
 					grv_free(_grvgm_state.game_state);
@@ -675,7 +677,8 @@ int grvgm_main(int argc, char** argv) {
 			_grvgm_state.game_time_ms = 0;
 			_grvgm_state.on_update(_grvgm_state.game_state, 0.0f);
 			_grvgm_game_state_push();
-		} else if (_grvgm_state.options.pause_enabled 
+		} else if (_grvgm_state.options.use_game_state_store
+			&& _grvgm_state.options.pause_enabled 
 			&& grvgm_key_was_pressed_with_mod('p', GRVGM_KEYMOD_CTRL)) {
 			pause = !pause;
 		} else if (pause == false || grvgm_key_was_pressed('n')) {
