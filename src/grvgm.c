@@ -47,17 +47,23 @@ typedef struct grvgm_callback_s {
 } grvgm_callback_t;
 
 typedef struct {
-	grv_window_t* window;
-	grv_framebuffer_t* framebuffer;
-	grv_bitmap_font_t* font;
-	u64 timestamp;
-	void* lib_handle;
-	u64 game_time_ms;
-	u64 frame_index;
+	void* handle;
 	grvgm_on_init_func on_init;
 	grvgm_on_update_func on_update;
 	grvgm_on_draw_func on_draw;
 	grvgm_on_audio_func on_audio;
+	u64 mod_time;
+	u64 timestamp;
+} grvgm_dylib_t;
+
+typedef struct {
+	grvgm_dylib_t dylib;
+	grv_window_t* window;
+	grv_framebuffer_t* framebuffer;
+	grv_bitmap_font_t* font;
+	u64 timestamp;
+	u64 game_time_ms;
+	u64 frame_index;
 	void* game_state;
 	size_t game_state_size;
     grvgm_game_state_store_t game_state_store;
@@ -124,39 +130,66 @@ u64 _grvgm_game_time_ms(void) {
 //==============================================================================
 // hot-loading of game code
 //==============================================================================
-int _grvgm_load_game_code(void) {
-	SDL_PauseAudioDevice(_grvgm_state.sdl_audio_device, 1);
+grv_u64_result_t _grvgm_dylib_mod_time(void) {
+	return grv_fs_file_mod_time(grv_str_ref(_grvgm_state.dynamic_library_name));
+}
 
-	if (_grvgm_state.lib_handle) {
-		_grvgm_state.on_init = NULL;
-		_grvgm_state.on_update = NULL;
-		_grvgm_state.on_draw = NULL;
-		_grvgm_state.on_audio = NULL;
-
-		SDL_UnloadObject(_grvgm_state.lib_handle);
-		_grvgm_state.lib_handle = NULL;
+grvgm_dylib_t _grvgm_dylib_load(void) {
+	grvgm_dylib_t lib = {0};
+	lib.handle = SDL_LoadObject(_grvgm_state.dynamic_library_name);
+	if (lib.handle == NULL) {
+		printf("[ERROR] Could not open dynamic library %s.\n", _grvgm_state.dynamic_library_name);
+		printf("        %s\n", SDL_GetError());
+		return lib;
 	}
+	grv_u64_result_t mod_time = _grvgm_dylib_mod_time();
+	grv_assert(mod_time.valid);
+	lib.mod_time = mod_time.value;
+	lib.timestamp = grvgm_ticks();
 
-	_grvgm_state.lib_handle = SDL_LoadObject(_grvgm_state.dynamic_library_name);
-	if (_grvgm_state.lib_handle == NULL) {
+	lib.on_init = (grvgm_on_init_func)SDL_LoadFunction(lib.handle, "on_init");
+	lib.on_update = (grvgm_on_update_func)SDL_LoadFunction(lib.handle, "on_update");
+	lib.on_draw = (grvgm_on_draw_func)SDL_LoadFunction(lib.handle, "on_draw");
+	lib.on_audio = (grvgm_on_audio_func)SDL_LoadFunction(lib.handle, "on_audio");
+	return lib;
+}
+
+void _grvgm_dylib_unload(grvgm_dylib_t* lib) {
+	SDL_UnloadObject(lib->handle);
+	*lib = (grvgm_dylib_t) {0};
+}
+
+
+void _grvgm_load_game_code(void) {
+	grvgm_dylib_t lib = _grvgm_dylib_load();
+	if (lib.handle == NULL) {
 		printf("[ERROR] Could not open dynamic library %s.\n", _grvgm_state.dynamic_library_name);
 		printf("        %s\n", SDL_GetError());
 		exit(1);
 	}
-
-	_grvgm_state.on_init = (grvgm_on_init_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_init");
-	_grvgm_state.on_update = (grvgm_on_update_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_update");
-	_grvgm_state.on_draw = (grvgm_on_draw_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_draw");
-	_grvgm_state.on_audio = (grvgm_on_audio_func)SDL_LoadFunction(_grvgm_state.lib_handle, "on_audio");
-	grv_assert(_grvgm_state.on_init);
-	grv_assert(_grvgm_state.on_update);
-	grv_assert(_grvgm_state.on_draw);
-
-	SDL_PauseAudioDevice(_grvgm_state.sdl_audio_device, 0);
-
-	return 0;
+	_grvgm_state.dylib = lib;
 }
 
+bool _grvgm_dylib_needs_reload(void) {
+	grvgm_dylib_t* dylib = &_grvgm_state.dylib;
+	u64 ticks = grvgm_ticks();
+	if (ticks - dylib->timestamp < 500) return false;
+	dylib->timestamp = ticks;
+	grv_u64_result_t mod_time = _grvgm_dylib_mod_time();
+	if (!mod_time.valid || mod_time.value == dylib->mod_time) return false;
+	return true;
+}
+
+void _grvgm_check_reload_game_code(void) {
+	if (_grvgm_dylib_needs_reload()) {
+		SDL_PauseAudioDevice(_grvgm_state.sdl_audio_device, 1);
+		_grvgm_dylib_unload(&_grvgm_state.dylib);
+		grvgm_dylib_t lib = _grvgm_dylib_load();
+		_grvgm_state.dylib = lib;
+		grv_assert(_grvgm_state.dylib.handle != NULL);
+		SDL_PauseAudioDevice(_grvgm_state.sdl_audio_device, 0);
+	}
+}
 
 //==============================================================================
 // Keyboard and button state
@@ -496,9 +529,9 @@ void _grvgm_game_state_reset_store(void) {
 void _grvgm_audio_callback(void* userdata, u8* buffer, i32 buffer_num_bytes) {
 	GRV_UNUSED(userdata);
 	i32 buffer_num_frames = buffer_num_bytes / 2 / sizeof(i16);
-	if (_grvgm_state.on_audio) {
+	if (_grvgm_state.dylib.on_audio) {
 		u64 audio_frame_start_counter = SDL_GetPerformanceCounter();
-		_grvgm_state.on_audio(
+		_grvgm_state.dylib.on_audio(
 			_grvgm_state.game_state,
 			(i16*)buffer,
 			buffer_num_frames);
@@ -559,7 +592,7 @@ void _grvgm_init(int argc, char** argv) {
 	_grvgm_parse_command_line(argc, argv);
 	_grvgm_state.executable_path = grv_str_ref(argv[0]);
 	grv_str_t executable_filename = grv_path_basename(_grvgm_state.executable_path);
-	grv_str_t dynamic_library_name = grv_str_format_cstr("lib{str}.so", executable_filename);
+	grv_str_t dynamic_library_name = grv_str_format_cstr("build/lib{str}.so", executable_filename);
 	_grvgm_state.dynamic_library_name = grv_str_copy_to_cstr(dynamic_library_name);
 	grv_str_t spritesheet_path = grv_str_format_cstr("assets/{str}_spritesheet.bmp", executable_filename);
 	if (grv_file_exists(spritesheet_path)) {
@@ -626,10 +659,18 @@ void _grvgm_execute_end_of_frame_callback_queue() {
 	*head = NULL;
 }
 
+void _grvgm_on_update(f32 dt) {
+	if (_grvgm_state.dylib.on_update) {
+		_grvgm_state.dylib.on_update(_grvgm_state.game_state, dt);
+		_grvgm_game_state_push();
+	}
+}
+
 int grvgm_main(int argc, char** argv) {
 	_grvgm_init(argc, argv);
 	_grvgm_load_game_code();
-	_grvgm_state.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
+	if (_grvgm_state.dylib.on_init)
+		_grvgm_state.dylib.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
 	_grvgm_init_gfx();
 	_grvgm_init_audio();
 
@@ -653,6 +694,7 @@ int grvgm_main(int argc, char** argv) {
 		grv_window_poll_events();
 		grvgm_poll_keyboard();
 		_grvgm_check_reload_spritesheet();
+		_grvgm_check_reload_game_code();
 
 		if (grvgm_key_was_pressed_with_mod('r', GRVGM_KEYMOD_CTRL)) {
 			_grvgm_load_game_code();
@@ -663,7 +705,8 @@ int grvgm_main(int argc, char** argv) {
 				if (_grvgm_state.game_state) {
 					grv_free(_grvgm_state.game_state);
 				}
-				_grvgm_state.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
+				if (_grvgm_state.dylib.on_init)
+					_grvgm_state.dylib.on_init(&_grvgm_state.game_state, &_grvgm_state.game_state_size);
 				_grvgm_game_state_reset_store();
 			}
 		}
@@ -675,8 +718,7 @@ int grvgm_main(int argc, char** argv) {
 		if (first_iteration) {
 			first_iteration = false;
 			_grvgm_state.game_time_ms = 0;
-			_grvgm_state.on_update(_grvgm_state.game_state, 0.0f);
-			_grvgm_game_state_push();
+			_grvgm_on_update(0.0f);
 		} else if (_grvgm_state.options.use_game_state_store
 			&& _grvgm_state.options.pause_enabled 
 			&& grvgm_key_was_pressed_with_mod('p', GRVGM_KEYMOD_CTRL)) {
@@ -685,8 +727,7 @@ int grvgm_main(int argc, char** argv) {
 			_grvgm_state.frame_index++;
 			_grvgm_state.game_time_ms += _grvgm_target_frame_time_ms();
 			f32 delta_time = 1.0f/ (f32)_grvgm_state.options.fps; 
-			_grvgm_state.on_update(_grvgm_state.game_state, delta_time);
-			_grvgm_game_state_push();
+			_grvgm_on_update(delta_time);
 		} else if (pause == true && grvgm_key_is_down('h')) {
 			i32 frames_to_jump = grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT) ? 4 : 1;
 			_grvgm_game_state_jump(-frames_to_jump);
@@ -717,7 +758,8 @@ int grvgm_main(int argc, char** argv) {
 			show_statistics = !show_statistics;
 		}
 
-		_grvgm_state.on_draw(_grvgm_state.game_state);
+		if (_grvgm_state.dylib.on_draw)
+			_grvgm_state.dylib.on_draw(_grvgm_state.game_state);
 
 		_grvgm_execute_end_of_frame_callback_queue();
 

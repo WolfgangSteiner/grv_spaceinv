@@ -149,6 +149,10 @@ fx32 grvgm_timediff(fx32 timestamp) {
 	return fx32_sub(grvgm_time(), timestamp);
 }
 
+u64 grvgm_ticks(void) {
+	return SDL_GetTicks64();
+}
+
 void* grvgm_draw_arena_alloc(size_t size) {
 	return grv_arena_alloc_zero(_grvgm_state.draw_arena, size);
 }

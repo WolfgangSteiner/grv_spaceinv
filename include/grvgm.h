@@ -137,4 +137,7 @@ fx32 grvgm_time(void);
 
 // compute time difference between a timestamp and the current time
 fx32 grvgm_timediff(fx32 timestamp);
+
+// ticks since start of game
+u64 grvgm_ticks(void);
 #endif
