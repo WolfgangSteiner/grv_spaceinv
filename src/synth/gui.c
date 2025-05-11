@@ -258,7 +258,7 @@ void draw_rect_slider_value_rect(rect_i32 slider_rect, audio_parameter_t* p) {
 void draw_rect_slider2(rect_i32 rect, char* label, audio_parameter_t* p) {
 	GRV_UNUSED(label);
 	rect_i32 slider_rect = {0, 0, 6, 14};
-	slider_rect = rect_i32_align_to_rect(slider_rect, rect, GRV_ALIGNMENT_CENTER);
+	slider_rect = rect_i32_align_to_rect(slider_rect, rect, GRV_ALIGNMENT_TOP_LEFT);
 	u8 frame_color = 5;
 	bool is_in_drag = grvgm_mouse_drag_started_in_rect(slider_rect);
 	if (is_in_drag) {
@@ -372,11 +372,12 @@ void draw_filter_gui(rect_i32 rect, simple_synth_t* synth) {
 
 void draw_synth_gui(layout_stack_t* s, synth_state_t* state) {
 	i32 h = 20;
+	i32 gap = 8;
 	simple_synth_t* synth = &state->tracks.arr[state->selected_track].synth;
 	envelope_t* env = &synth->envelope;
-	draw_osc_gui(layout_stack_vsplit_top(s, h, 2), &synth->oscillator);
-	draw_filter_gui(layout_stack_vsplit_top(s, h, 2), synth);	
-	draw_envelope_gui(layout_stack_vsplit_top(s, h, 2), env);
+	draw_osc_gui(layout_stack_vsplit_top(s, h, gap), &synth->oscillator);
+	draw_filter_gui(layout_stack_vsplit_top(s, h, gap), synth);	
+	draw_envelope_gui(layout_stack_vsplit_top(s, h, gap), env);
 }
 
 void on_draw(void* state) {
