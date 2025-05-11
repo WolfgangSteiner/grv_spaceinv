@@ -22,6 +22,7 @@ grv_arena_t* get_arena(synth_state_t* state) {
 
 void on_init(void** game_state, size_t* size) {
 	grvgm_set_screen_size(256, 256);
+	grvgm_set_sprite_size(16);
 	grvgm_set_use_game_state_store(false);
 	synth_state_t* synth_state = grv_alloc_zeros(sizeof(synth_state_t));
 	synth_state_init(synth_state);
