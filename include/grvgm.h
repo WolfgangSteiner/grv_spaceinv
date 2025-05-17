@@ -72,6 +72,7 @@ void grvgm_clear_screen(u8 color);
 
 void grvgm_draw_sprite(vec2_i32 pos, grvgm_sprite_t sprite);
 void grvgm_draw_pixel(vec2_i32 pos, u8 color);
+void grvgm_draw_line(vec2_i32 p1, vec2_i32 p2, u8 color);
 void grvgm_draw_rect(rect_i32 rect, u8 color);
 void grvgm_fill_rect(rect_i32 rect, u8 color);
 void grvgm_draw_rect_chamfered(rect_i32 rect, u8 color);
@@ -84,6 +85,7 @@ void grvgm_draw_text_aligned(rect_i32 rect, grv_str_t text, grv_alignment_t alig
 
 void grvgm_draw_sprite_fx32(vec2_fx32 pos, grvgm_sprite_t sprite);
 void grvgm_draw_pixel_fx32(vec2_fx32 pos, u8 color);
+void grvgm_draw_line_fx32(vec2_fx32 p1, vec2_fx32 p2, u8 color);
 void grvgm_draw_rect_fx32(rect_fx32 rect, u8 color);
 void grvgm_fill_rect_fx32(rect_fx32 rect, u8 color);
 void grvgm_draw_rect_chamfered_fx32(rect_fx32 rect, u8 color);

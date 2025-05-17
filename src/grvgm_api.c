@@ -26,6 +26,16 @@ void grvgm_draw_pixel_fx32(vec2_fx32 pos, u8 color) {
 	grvgm_draw_pixel(vec2_fx32_round(pos), color);
 }
 
+void grvgm_draw_line(vec2_i32 p1, vec2_i32 p2, u8 color) {
+	grv_framebuffer_draw_line_u8(_grvgm_framebuffer(), p1, p2, color);
+}
+
+void grvgm_draw_line_fx32(vec2_fx32 p1, vec2_fx32 p2, u8 color) {
+	vec2_i32 p1_i32 = vec2_fx32_round(p1);
+	vec2_i32 p2_i32 = vec2_fx32_round(p2);
+	grv_framebuffer_draw_line_u8(_grvgm_framebuffer(), p1_i32, p2_i32, color);
+}
+
 void grvgm_draw_rect(rect_i32 rect, u8 color) {
 	grv_framebuffer_draw_rect_u8(_grvgm_framebuffer(), rect, color);
 }
