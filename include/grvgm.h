@@ -118,6 +118,8 @@ vec2_fx32 grvgm_initial_drag_position_fx32(void);
 
 bool grvgm_mouse_in_rect(rect_i32 rect);
 bool grvgm_mouse_click_in_rect(rect_i32 rect, i32 button_id);
+bool grvgm_mouse_click_in_rect_with_id(u64 id, rect_i32 rect, i32 button_id);
+
 bool grvgm_mouse_drag_started_in_rect(rect_i32 rect);
 
 //==============================================================================

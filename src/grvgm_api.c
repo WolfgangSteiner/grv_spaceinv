@@ -219,12 +219,21 @@ bool grvgm_mouse_click_in_rect(rect_i32 rect, i32 button_id) {
 	return false;
 }
 
+bool grvgm_mouse_click_in_rect_with_id(u64 id, rect_i32 rect, i32 button_id) {
+	// register rect with id as click recipient
+	grvgm_mouse_event_type_t event_type =
+		button_id == GRVGM_BUTTON_MOUSE_LEFT
+		? MOUSE_EVENT_TYPE_LEFT_CLICK
+		: MOUSE_EVENT_TYPE_RIGHT_CLICK;
+	_grvgm_push_mouse_event_receiver(id, rect, event_type);
+	
+	return _grvgm_state.mouse_event_receiver == id;
+}
+
 bool grvgm_mouse_drag_started_in_rect(rect_i32 rect) {
 	grv_window_t* w = _grvgm_window();
-	if (w->is_in_drag && rect_i32_point_inside(rect, vec2f_round(w->mouse_drag_initial_view_pos))) {
-		return true;
-	}
-	return false;
+	return w->is_in_drag
+	  && rect_i32_point_inside(rect, vec2f_round(w->mouse_drag_initial_view_pos));
 }
 
 f32 grvgm_random_f32(void) {

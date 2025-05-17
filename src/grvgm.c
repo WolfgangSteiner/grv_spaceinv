@@ -56,6 +56,25 @@ typedef struct {
 	u64 timestamp;
 } grvgm_dylib_t;
 
+typedef enum {
+	MOUSE_EVENT_TYPE_BLOCK,
+	MOUSE_EVENT_TYPE_LEFT_CLICK,
+	MOUSE_EVENT_TYPE_RIGHT_CLICK,
+	MOUSE_EVENT_TYPE_DRAG_START,
+} grvgm_mouse_event_type_t;
+
+typedef struct {
+	u64 id;
+	rect_i32 rect;
+	grvgm_mouse_event_type_t event_type;
+} grvmgm_mouse_event_receiver_t;
+
+typedef struct {
+	grvmgm_mouse_event_receiver_t* arr;
+	i32 capacity;
+	i32 size;
+} grvgm_mouse_event_receiver_queue_t;
+
 typedef struct {
 	grvgm_dylib_t dylib;
 	grv_window_t* window;
@@ -89,6 +108,9 @@ typedef struct {
 		grvgm_callback_t* root;
 		grvgm_callback_t* head;
 	} end_of_frame_callback_queue;
+
+	grvgm_mouse_event_receiver_queue_t mouse_event_receiver_queue;
+	u64 mouse_event_receiver;
 } grvgm_state_t;
 
 static grvgm_state_t _grvgm_state = {
@@ -122,6 +144,22 @@ grv_bitmap_font_t* _grvgm_font(void) {
 u64 _grvgm_game_time_ms(void) {
 	return _grvgm_state.game_time_ms;
 }
+
+void _grvgm_push_mouse_event_receiver(
+	u64 id, rect_i32 rect, grvgm_mouse_event_type_t event_type)
+{
+	grvgm_mouse_event_receiver_queue_t* queue = &_grvgm_state.mouse_event_receiver_queue;
+	if (queue->capacity <= queue->size) {
+		queue->capacity = grv_max_i32(queue->capacity * 2, 1024);
+		queue->arr = grv_realloc(queue->arr, queue->capacity);
+	}
+	queue->arr[queue->size++] = (grvmgm_mouse_event_receiver_t) {
+		.id = id,
+		.rect = rect,
+		.event_type = event_type
+	};
+}
+
 //==============================================================================
 // api
 //==============================================================================
@@ -666,6 +704,32 @@ void _grvgm_on_update(f32 dt) {
 	}
 }
 
+bool _grvgm_did_occur_left_mouse_click(void) {
+	grv_window_t* w = _grvgm_state.window;
+	grv_mouse_button_info_t* button_info = &w->mouse_button_info[GRVGM_BUTTON_MOUSE_LEFT];
+	return !w->is_in_drag && button_info->was_down && !button_info->is_down;
+}
+
+void _grvgm_evaluate_mouse_events(void) {
+	grvgm_mouse_event_receiver_queue_t* queue = &_grvgm_state.mouse_event_receiver_queue;
+	_grvgm_state.mouse_event_receiver = 0;
+	if (_grvgm_did_occur_left_mouse_click()) {
+		vec2_i32 pos = vec2f_round(
+			_grvgm_state.window->mouse_button_info[GRVGM_BUTTON_MOUSE_LEFT].initial_view_pos);
+		for (i32 i = queue->size - 1; i >= 0; i--) {
+			grvmgm_mouse_event_receiver_t* r = &queue->arr[i];
+			if (r->event_type == MOUSE_EVENT_TYPE_LEFT_CLICK
+				&& rect_i32_point_inside(r->rect, pos)) {
+				_grvgm_state.mouse_event_receiver = r->id;
+				break;
+			} else if (r->event_type == MOUSE_EVENT_TYPE_BLOCK) {
+				break;
+			}
+		}
+	}
+	queue->size = 0;
+}
+
 int grvgm_main(int argc, char** argv) {
 	_grvgm_init(argc, argv);
 	_grvgm_load_game_code();
@@ -761,6 +825,7 @@ int grvgm_main(int argc, char** argv) {
 		if (_grvgm_state.dylib.on_draw)
 			_grvgm_state.dylib.on_draw(_grvgm_state.game_state);
 
+		_grvgm_evaluate_mouse_events();
 		_grvgm_execute_end_of_frame_callback_queue();
 
 		if (show_debug_ui) {

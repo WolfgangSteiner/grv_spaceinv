@@ -73,7 +73,7 @@ void draw_trigger_button(
 	synth_pattern_step_t* step,
 	i32 step_idx,
 	bool is_triggered) {
-	if (grvgm_mouse_click_in_rect(r, GRVGM_BUTTON_MOUSE_LEFT)) {
+	if (grvgm_mouse_click_in_rect_with_id((u64) step, r, GRVGM_BUTTON_MOUSE_LEFT)) {
 		step->activated = !step->activated;
 	}
 	u8 fill_color = step_idx % 4 ? 5 : 13;
