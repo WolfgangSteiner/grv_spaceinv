@@ -136,6 +136,7 @@ rect_i32 grvgm_screen_rect(void);
 
 // get the current game time
 fx32 grvgm_time(void);
+f32 grvgm_time_f32(void);
 
 // compute time difference between a timestamp and the current time
 fx32 grvgm_timediff(fx32 timestamp);

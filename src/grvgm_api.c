@@ -159,6 +159,10 @@ fx32 grvgm_timediff(fx32 timestamp) {
 	return fx32_sub(grvgm_time(), timestamp);
 }
 
+f32 grvgm_time_f32(void) {
+	return _grvgm_game_time_ms() / 1000.0f;
+}
+
 u64 grvgm_ticks(void) {
 	return SDL_GetTicks64();
 }
