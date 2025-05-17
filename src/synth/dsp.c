@@ -1,6 +1,7 @@
 #include "dsp.h"
 #include "synth_base.h"
 #include "libc/memcpy.h"
+#include "parameter_mapping.h"
 
 f32* audio_buffer_alloc(grv_arena_t* arena) {
 	return grv_arena_alloc(arena, AUDIO_FRAME_SIZE*sizeof(f32));
@@ -68,14 +69,31 @@ void audio_buffer_from_db(f32* dst, f32* src) {
 	}
 }
 
-f32* audio_buffer_modulate_add(f32* signal, f32* mod, f32 amount, f32 min_value, f32 max_value, grv_arena_t* arena) {
+f32* audio_buffer_modulate_add(f32* signal, f32* mod, f32 amount, grv_arena_t* arena) {
 	f32* out = audio_buffer_alloc(arena);
 	f32* dst = out;
+	amount = (amount - 0.5f) * 2.0f;
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-		f32 val = (*signal++) + (*mod++) * amount * (max_value - min_value);
-		(*dst++) = grv_min_f32(grv_max_f32(val, min_value), max_value);
+		f32 val = (*signal++) + (*mod++) * amount;
+		(*dst++) =  grv_clamp_f32(val, 0.0f, 1.0f);
 	}
 	return out;
+}
+
+void audio_buffer_denormalize_log_freq(f32* buffer, f32 min_value, f32 max_value) {
+	f32* smp = buffer;
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		f32 val = *smp;
+		*smp++ = map_normalized_log_freq_to_freq(val, min_value, max_value);
+	}
+}
+
+void audio_buffer_denormalize_linear(f32* buffer, f32 min_value, f32 max_value) {
+	f32* smp = buffer;
+	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
+		f32 val = *smp;
+		*smp++ = map_normalized_to_linear(val, min_value, max_value);
+	}
 }
 
 f32* smooth_value(f32 y_target, f32* y_state, f32 alpha, grv_arena_t* arena){

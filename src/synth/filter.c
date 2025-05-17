@@ -2,6 +2,7 @@
 #include "synth_base.h"
 #include "grv/grv_math.h"
 #include "dsp.h"
+#include "parameter_mapping.h"
 
 void synth_filter_process(
 	f32* dst, f32* src, synth_filter_t* filter, f32* f, f32* q, grv_arena_t* arena) {
@@ -14,7 +15,7 @@ void synth_filter_process(
 	f32 f_min = filter->f.min_value;
 
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-		f32 f_hz = log_to_freq(*f++, f_min);
+		f32 f_hz = *f++; // log_to_freq(*f++, f_min);
 		f32 w = 2.0f * tanf(PI_F32 * f_hz/AUDIO_SAMPLE_RATE);
 		f32 a = w / (*q++);
 		f32 b = w * w;
@@ -33,6 +34,7 @@ void synth_filter_process(
 		z21 += c1 * x2;
 	}
 
+
 	filter->state[0].z1 = z11;
 	filter->state[0].z2 = z12;
 	filter->state[1].z1 = z21;
@@ -44,13 +46,13 @@ void synth_filter_init(synth_filter_t* filter) {
 	*filter = (synth_filter_t) {
 		.filter_type = FILTER_TYPE_LP24,
 		.f = {
-			.value = 2000.0f,
+			.value = map_log_freq_to_normalized(2000.0f, 20.0f, 20000.0f),
 			.min_value = 20.0f,
 			.max_value = 20000.0f,
 			.mapping_type = MAPPING_TYPE_LOG_FREQUENCY,
 		},
 		.q = {
-			.value = 1.0f,
+			.value =  0.0f,
 			.min_value = 1.0f,
 			.max_value = 5.0f,
 			.mapping_type = MAPPING_TYPE_LINEAR,

@@ -5,6 +5,7 @@
 #include "grv/vec2_fx32.h"
 #include "grv_gfx/rect_fx32.h"
 #include "grv_gfx/grv_spritesheet8.h"
+#include "grv/grv_arena.h"
 
 #define GRVGM_SAMPLE_RATE 48000
 
@@ -64,7 +65,7 @@ bool grvgm_is_button_down(grvgm_button_code_t button_code);
 bool grvgm_was_button_pressed(grvgm_button_code_t button_code);
 bool grvgm_key_was_pressed(char key);
 bool grvgm_key_was_pressed_with_mod(char key, u32 mod);
-
+bool grvgm_is_keymod_down(u32 keymod);
 //==============================================================================
 // drawing api
 //==============================================================================
@@ -96,6 +97,7 @@ void grvgm_draw_text_fx32(vec2_fx32 pos, grv_str_t text, u8 color);
 void grvgm_draw_text_aligned_fx32(rect_fx32 retct, grv_str_t text, grv_alignment_t alignment, u8 color);
 
 void* grvgm_draw_arena_alloc(size_t size);
+grv_arena_t* grvgm_draw_arena(void);
 void grvgm_defer(void(*callback)(void*), void* data);
 //==============================================================================
 // math

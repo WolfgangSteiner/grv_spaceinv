@@ -1,6 +1,13 @@
 #include "synth_base.h"
 #include "envelope.h"
 #include "dsp.h"
+#include "parameter_mapping.h"
+
+
+f32 envelope_sustain_db_to_amp(envelope_t* env) {
+	return map_normalized_volume_to_amplitude_linear(
+		env->sustain.value, env->sustain.min_value, env->sustain.max_value);
+}
 
 f32 envelope_compute_alpha(f32 t_samples, f32 target_ratio) {
 	return t_samples <= 0.0f 
@@ -21,7 +28,8 @@ void envelope_set_decay_time(envelope_t* env, f32 t_s) {
 	f32 decay_rate = t_s * AUDIO_SAMPLE_RATE;
 	env->decay.value = t_s;
 	env->alpha_decay = envelope_compute_alpha(decay_rate, env->target_ratio_decay_release);
-	env->offset_decay = (env->sustain.value - env->target_ratio_decay_release) * (1.0f - env->alpha_decay);
+	f32 sustain_amp_value = envelope_sustain_db_to_amp(env);
+	env->offset_decay = (sustain_amp_value - env->target_ratio_decay_release) * (1.0f - env->alpha_decay);
 }
 
 void envelope_set_release_time(envelope_t* env, f32 t_s) {
@@ -33,7 +41,7 @@ void envelope_set_release_time(envelope_t* env, f32 t_s) {
 }
 
 void envelope_set_sustain(envelope_t* env, f32 sustain) {
-	sustain = grv_clamp_f32(sustain, env->release.min_value, env->release.max_value);
+	sustain = grv_clamp_f32(sustain, env->sustain.min_value, env->sustain.max_value);
 	env->sustain.value = sustain;
 	envelope_set_decay_time(env, env->decay.value);
 }
@@ -44,30 +52,36 @@ void envelope_init(envelope_t* envelope) {
 	f32 t_release = 0.2f;
 	f32 sustain = 0.5f;
 
+	f32 t_min = 0.001f;
+	f32 t_max = 60.0f;
+
+	f32 sustain_min = -72.0f;
+	f32 sustain_max = 0.0f;
+
 	*envelope = (envelope_t) {
 		.attack = {
-			.value = t_attack,
-			.min_value = 0.001f,
-			.max_value = 1.0f,
+			.value = map_log_time_to_normalized(t_attack, t_min, t_max),
+			.min_value = t_min,
+			.max_value = t_max,
 			.mapping_type = MAPPING_TYPE_LOG_TIME,
 		},
 		.decay = {
-			.value = t_decay,
-			.min_value = 0.001f,
-			.max_value = 1.0f,
+			.value = map_log_time_to_normalized(t_decay, t_min, t_max),
+			.min_value = t_min,
+			.max_value = t_max,
 			.mapping_type = MAPPING_TYPE_LOG_TIME,
 		},
 		.release = {
-			.value = t_release,
-			.min_value = 0.001f,
-			.max_value = 1.0f,
+			.value = map_log_time_to_normalized(t_release, t_min, t_max),
+			.min_value = t_min,
+			.max_value = t_max,
 			.mapping_type = MAPPING_TYPE_LOG_TIME,
 		},
 		.sustain = {
-			.value = sustain,
-			.min_value = 0.0f,
-			.max_value = 1.0f,
-			.mapping_type = MAPPING_TYPE_LINEAR,
+			.value = map_volume_db_to_normalized_linear(sustain, sustain_min, sustain_max),
+			.min_value = sustain_min,
+			.max_value = sustain_max,
+			.mapping_type = MAPPING_TYPE_VOLUME,
 		},
 		.target_ratio_attack = 0.3f,
 		.target_ratio_decay_release = 0.0001f,
@@ -115,7 +129,11 @@ f32* envelope_process(envelope_t* env, f32 gate, bool trigger_received, grv_aren
 		*state = ENVELOPE_SUSTAIN;
 		env->alpha = 1.0f;
 		env->offset = 0.0f;
-		env->y = env->sustain.value;
+		env->y = map_normalized_volume_to_amplitude_linear(
+			env->sustain.value,
+			env->sustain.min_value,
+			env->sustain.max_value
+		);
 	}
 
 	f32* outptr = audio_buffer_alloc(arena);

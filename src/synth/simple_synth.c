@@ -1,31 +1,32 @@
 #include "simple_synth.h"
 #include "dsp.h"
+#include "parameter_mapping.h"
 
 void simple_synth_init(simple_synth_t* synth) {
 	*synth = (simple_synth_t) {
 		.oscillator = {
-			.wave_type = WAVE_TYPE_SINE,
+			.wave_type = WAVE_TYPE_SAW,
 		},
 		.vol = {
-			.value = 0.0f,
-			.min_value = -96.0f,
+			.value = map_volume_db_to_normalized_linear(0.0f, -72.0f, 0.0f),
+			.min_value = -72.0f,
 			.max_value = 0.0f,
-			.mapping_type = MAPPING_TYPE_LINEAR,
+			.mapping_type = MAPPING_TYPE_VOLUME,
 		},
 		.pan = {
-			.value = 0.0f,
+			.value = 0.5f,
 			.min_value = -1.0f,
 			.max_value = 1.0f,
 			.mapping_type = MAPPING_TYPE_LINEAR,
 		},
 		.filter_envelope_to_frequency = {
-			.value = 0.0f,
+			.value = 0.5f,
 			.min_value = -1.0f,
 			.max_value = 1.0f,
 			.mapping_type = MAPPING_TYPE_LINEAR,
 		},
 		.filter_envelope_to_resonance = {
-			.value = 0.0f,
+			.value = 0.5f,
 			.min_value = -1.0f,
 			.max_value = 1.0f,
 			.mapping_type = MAPPING_TYPE_LINEAR,
@@ -61,10 +62,13 @@ void simple_synth_process(
 
 	f32* f = audio_parameter_smooth(&synth->filter.f, arena);
 	f32* q = audio_parameter_smooth(&synth->filter.q, arena);
+	f = audio_buffer_modulate_add(f, filter_env, synth->filter_envelope_to_frequency.value, arena);
+	q = audio_buffer_modulate_add(q, filter_env, synth->filter_envelope_to_resonance.value, arena);
+	audio_buffer_denormalize_log_freq(f, synth->filter.f.min_value, synth->filter.f.max_value);
+	audio_buffer_denormalize_linear(q, synth->filter.q.min_value, synth->filter.q.max_value);
 
-	f32 log_f_min = 0.0f;
-	f32 log_f_max = freq_to_log(synth->filter.f.max_value, synth->filter.f.min_value);
-	f = audio_buffer_modulate_add(f, filter_env, synth->filter_envelope_to_frequency.value, log_f_min, log_f_max, arena);
+	//f = audio_buffer_from_constant(2000.0f, arena);
+	//q = audio_buffer_from_constant(1.0f, arena);
 
 	synth_filter_process(signal_buffer, signal_buffer, &synth->filter, f, q, arena);
 

@@ -6,30 +6,31 @@
 #include "transport.h"
 #include "note_processor.h"
 #include "sequencer.h"
+#include "parameter_mapping.h"
 
 void process_mono_to_stereo(f32* left, f32* right, f32* in, f32* pan) {
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-		f32 phi = HALF_PI_F32 * 0.5f * ((*pan++) + 1.0f);
+		f32 phi = HALF_PI_F32 * (*pan++);
 		f32 in_value = *in++;
 		*left++ = cosf(phi) * in_value;
 		*right++ = sinf(phi) * in_value;
 	}
 }
 
-f32* process_volume_to_amp(f32* volume_buffer, grv_arena_t* arena) {
+f32* process_normalized_volume_to_amp(f32* volume_buffer, f32 min_volume, f32 max_volume, grv_arena_t* arena) {
 	f32* amp_buffer = audio_buffer_alloc(arena);
 	f32* src = volume_buffer;
 	f32* dst = amp_buffer;
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
-		*dst++ = from_db(*src++);
+		*dst++ = map_normalized_volume_to_amplitude_linear(*src++, min_volume, max_volume);
 	}
 	return amp_buffer;
 }
 
 void process_volume(f32* buffer_l, f32* buffer_r, audio_parameter_t* vol, grv_arena_t* arena) {
 	grv_arena_push_frame(arena);
-	f32* amp_db = audio_parameter_smooth(vol, arena);
-	f32* amp = process_volume_to_amp(amp_db, arena);
+	f32* amp = audio_parameter_smooth(vol, arena);
+	amp = process_normalized_volume_to_amp(amp, vol->min_value, vol->max_value, arena);
 	audio_buffer_mul(buffer_l, buffer_l, amp);
 	audio_buffer_mul(buffer_r, buffer_r, amp);
 	grv_arena_pop_frame(arena);
@@ -50,7 +51,7 @@ void synth_state_init(synth_state_t* state) {
 		.master_volume = {
 			.min_value=-72.0f,
 			.max_value=0.0f,
-			.value=-6.0f,
+			.value=map_volume_db_to_normalized_linear(-6.0f, -72.0f, 0.0f),
 			.smoothing_coefficient=0.01f,
 			.mapping_type=MAPPING_TYPE_VOLUME,
 		},

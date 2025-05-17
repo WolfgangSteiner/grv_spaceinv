@@ -326,7 +326,7 @@ int _grvgm_char_to_sdl_scancode(char key) {
 	}
 }
 
-bool grvgm_is_keymod_down(grvgm_keymod_t keymod) {
+bool grvgm_is_keymod_down(u32 keymod) {
 	if (keymod & GRVGM_KEYMOD_SHIFT_LEFT) {
 		if (_grvgm_current_keyboard_state[SDL_SCANCODE_LSHIFT]) return true;
 	}

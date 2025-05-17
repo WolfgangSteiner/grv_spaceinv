@@ -35,7 +35,9 @@ void audio_buffer_copy(f32* dst, f32* src);
 void audio_buffer_clear(f32* dst);
 f32* audio_buffer_from_constant(f32 c, grv_arena_t* arena);
 void audio_buffer_from_db(f32* dst, f32* src);
-f32* audio_buffer_modulate_add(f32* dst, f32* src, f32 amount, f32 min_value, f32 max_value, grv_arena_t* arena);
+f32* audio_buffer_modulate_add(f32* dst, f32* src, f32 amount, grv_arena_t* arena);
+void audio_buffer_denormalize_log_freq(f32* buffer, f32 min_value, f32 max_value);
+void audio_buffer_denormalize_linear(f32* buffer, f32 min_value, f32 max_value);
 f32* smooth_value(f32 y_target, f32* y_state, f32 alpha, grv_arena_t* arena);
 void render_pcm_stereo(i16* out, f32* left, f32* right, i32 frame_idx);
 #endif

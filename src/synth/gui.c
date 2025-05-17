@@ -124,7 +124,10 @@ f32 slider_increment(audio_parameter_t* p) {
 	vec2_i32 abs_offset = vec2i_abs(offset);
 	bool use_x = abs_offset.x > abs_offset.y;
 	f32 increment_px = use_x ? offset.x : -offset.y;
-	f32 sensitivity = p->sensitivity > 0.0f ? p->sensitivity : 0.02f;
+	f32 sensitivity = p->sensitivity > 0.0f ? p->sensitivity : 0.01f;
+	if (grvgm_is_keymod_down(GRVGM_KEYMOD_SHIFT)) {
+		sensitivity /= 10;
+	}
 	return increment_px * sensitivity;
 }
 
@@ -159,26 +162,11 @@ f32 slider_map_value_from_gui(f32 val, audio_parameter_t* p) {
 // log10(pow(max_val/min_val), gui_val) = log10(val/min_val)
 // val = min_val * pow(max_val/_min_val, gui_val);
 
-f32 slider_map_value_to_gui(audio_parameter_t* p) {
-	f32 rel_value = audio_parameter_relative_value(p);
-	if (audio_parameter_is_bipolar(p)) {
-		rel_value = 2.0f * rel_value - 1.0f;
-	}
-	switch (p->mapping_type) {
-	case MAPPING_TYPE_VOLUME:
-		return powf(rel_value, 3.0f);
-	case MAPPING_TYPE_LOG_TIME:
-		return p->value == 0.0f ? 0.0f : log10f(p->value/p->min_value) / log10f(p->max_value/p->min_value);
-	case MAPPING_TYPE_LOG:
-		return log10f(p->value/p->min_value) / log10f(p->max_value/p->min_value);
-	case MAPPING_TYPE_LOG_FREQUENCY:
-		return freq_to_log(p->value, p->min_value) / freq_to_log(p->max_value, p->min_value);
-	default:
-		return rel_value;
-	}
-}
 
 char* slider_format_value(audio_parameter_t* p) {
+	return audio_parameter_value_as_string(p, grvgm_draw_arena());
+
+
 	char* str = grvgm_draw_arena_alloc(32);
 	switch (p->mapping_type) {
 	case MAPPING_TYPE_LOG_TIME:
@@ -215,23 +203,24 @@ void draw_track_buttons(rect_i32 rect, synth_state_t* state) {
 
 void draw_rect_slider_value_rect(rect_i32 slider_rect, audio_parameter_t* p) {
 	rect_i32 value_rect = rect_i32_shrink(slider_rect, 1, 1);
+	f32 rel_value = audio_parameter_map_to_gui_relative_value(p);
 	f32 display_value = 
 		audio_parameter_is_bipolar(p)
-		? (value_rect.h / 2) * slider_map_value_to_gui(p)
-		: value_rect.h * slider_map_value_to_gui(p);
+		? (value_rect.h - 1) * rel_value
+		: value_rect.h * rel_value;
 	i32 display_value_px = grv_round_f32(display_value);
 	
 	if (audio_parameter_is_bipolar(p)) {
 		if (display_value_px >= 0) {
 			value_rect.y = value_rect.y + value_rect.h/2 - display_value_px;
 		} else {
-			value_rect.y = value_rect.h/2;
+			value_rect.y = value_rect.y + value_rect.h/2 + 1;
 		}
 	} else {
 		value_rect.y = rect_i32_ymax(value_rect) - display_value_px + 1;
 	}
 
-	value_rect.h = display_value_px;
+	value_rect.h = grv_abs_i32(display_value_px);
 
 	grvgm_fill_rect(value_rect, 9);
 }
@@ -244,11 +233,10 @@ void draw_rect_slider(rect_i32 rect, char* label, audio_parameter_t* p) {
 	bool is_in_drag = grvgm_mouse_drag_started_in_rect(slider_rect);
 	if (is_in_drag) {
 		if (p->_initial_drag_value == GRV_MAX_F32) {
-			p->_initial_drag_value = slider_map_value_to_gui(p);
+			p->_initial_drag_value = p->value;
 		}
 		frame_color=7;
-		f32 gui_value = grv_clamp_f32(p->_initial_drag_value + slider_increment(p), 0.0f, 1.0f);
-		f32 new_value = slider_map_value_from_gui(gui_value, p);
+		f32 new_value = grv_clamp_f32(p->_initial_drag_value + slider_increment(p), 0.0f, 1.0f);
 		p->value = new_value;
 	} else {
 		p->_initial_drag_value = GRV_MAX_F32;
@@ -269,8 +257,10 @@ void draw_rect_slider(rect_i32 rect, char* label, audio_parameter_t* p) {
 	rect_i32 label_rect = rect_i32_align_to_rect(grvgm_text_rect(grv_str_ref(label)), slider_rect, GRV_ALIGNMENT_BELOW_CENTER);
 	label_rect.y += 1;
 	if (is_in_drag) {
+		vec2_i32 label_pos = rect_i32_pos(label_rect);
+		label_pos = (vec2_i32) {.x=192, .y=2};
 		grvgm_draw_text_floating(
-			rect_i32_pos(label_rect),
+			label_pos,
 			grv_str_ref(label),
 			7
 		);

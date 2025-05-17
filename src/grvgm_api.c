@@ -173,6 +173,10 @@ void* grvgm_draw_arena_alloc(size_t size) {
 	return grv_arena_alloc_zero(_grvgm_state.draw_arena, size);
 }
 
+grv_arena_t* grvgm_draw_arena(void) {
+	return _grvgm_state.draw_arena;
+}
+
 void grvgm_defer(void(*func)(void*), void* data) {
 	grvgm_callback_t** root = &_grvgm_state.end_of_frame_callback_queue.root;
 	grvgm_callback_t** head = &_grvgm_state.end_of_frame_callback_queue.head;
