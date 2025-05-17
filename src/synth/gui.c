@@ -119,25 +119,6 @@ bool draw_text_button(rect_i32 rect, grv_str_t text, bool* selected) {
 	return grvgm_mouse_click_in_rect(rect, 1);
 }
 
-void draw_rect_slider(rect_i32 rect, grv_str_t text, i32* value, i32 min_value, i32 max_value) {
-	GRV_UNUSED(text);
-	rect_i32 slider_rect = {0, 0, 8, 8};
-	slider_rect = rect_i32_align_to_rect(slider_rect, rect, GRV_ALIGNMENT_CENTER);
-	fx32 display_value =
-		fx32_mul_i32(
-			fx32_div(
-				fx32_from_i32(*value - min_value),
-				fx32_from_i32(max_value - min_value)),
-			64);
-	i32 num_px = fx32_round(display_value);
-	for (i32 i = 0; i < num_px; i++) {
-		i32 x = i / 8;
-		i32 y = i % 8;
-		vec2_i32 p = {x + slider_rect.x, slider_rect.y - y};
-		grvgm_draw_pixel(p, 9);
-	}
-}
-
 f32 slider_increment(audio_parameter_t* p) {
 	vec2_i32 offset = vec2i_sub(grvgm_mouse_position(), grvgm_initial_drag_position());
 	vec2_i32 abs_offset = vec2i_abs(offset);
@@ -255,9 +236,9 @@ void draw_rect_slider_value_rect(rect_i32 slider_rect, audio_parameter_t* p) {
 	grvgm_fill_rect(value_rect, 9);
 }
 
-void draw_rect_slider2(rect_i32 rect, char* label, audio_parameter_t* p) {
+void draw_rect_slider(rect_i32 rect, char* label, audio_parameter_t* p) {
 	GRV_UNUSED(label);
-	rect_i32 slider_rect = {0, 0, 6, 14};
+	rect_i32 slider_rect = {0, 0, 6, 15};
 	slider_rect = rect_i32_align_to_rect(slider_rect, rect, GRV_ALIGNMENT_TOP_LEFT);
 	u8 frame_color = 5;
 	bool is_in_drag = grvgm_mouse_drag_started_in_rect(slider_rect);
@@ -274,6 +255,12 @@ void draw_rect_slider2(rect_i32 rect, char* label, audio_parameter_t* p) {
 	}
 
 	grvgm_draw_rect(slider_rect, frame_color);
+	if (audio_parameter_is_bipolar(p)) {
+		grvgm_draw_line(
+			rect_i32_center_left(slider_rect),
+			rect_i32_center_right(slider_rect),
+			frame_color);
+	}
 	draw_rect_slider_value_rect(slider_rect, p);
 
 	if (is_in_drag) {
@@ -351,10 +338,10 @@ void draw_envelope_gui(rect_i32 rect, envelope_t* env) {
 	i32 w = 4;
 	i32 gap = 4;
 	layout_stack_t* s = layout_stack_init(rect);
-	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "A", &env->attack);
-	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "D", &env->decay);
-	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "S", &env->sustain);
-	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "R", &env->release);
+	draw_rect_slider(layout_stack_hsplit_left(s, w, gap), "A", &env->attack);
+	draw_rect_slider(layout_stack_hsplit_left(s, w, gap), "D", &env->decay);
+	draw_rect_slider(layout_stack_hsplit_left(s, w, gap), "S", &env->sustain);
+	draw_rect_slider(layout_stack_hsplit_left(s, w, gap), "R", &env->release);
 }
 
 void draw_filter_gui(rect_i32 rect, simple_synth_t* synth) {
@@ -363,11 +350,11 @@ void draw_filter_gui(rect_i32 rect, simple_synth_t* synth) {
 	i32 w = 4;
 	i32 gap = 4;
 	layout_stack_t* s = layout_stack_init(rect);
-	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "F", &filter->f);
-	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "Q", &filter->q);
+	draw_rect_slider(layout_stack_hsplit_left(s, w, gap), "F", &filter->f);
+	draw_rect_slider(layout_stack_hsplit_left(s, w, gap), "Q", &filter->q);
 	draw_envelope_gui(layout_stack_hsplit_left(s, 40, gap), &synth->filter_envelope);
-	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "MF", &synth->filter_envelope_to_frequency);
-	draw_rect_slider2(layout_stack_hsplit_left(s, w, gap), "MQ", &synth->filter_envelope_to_resonance);
+	draw_rect_slider(layout_stack_hsplit_left(s, w, gap), "MF", &synth->filter_envelope_to_frequency);
+	draw_rect_slider(layout_stack_hsplit_left(s, w, gap), "MQ", &synth->filter_envelope_to_resonance);
 }
 
 void draw_synth_gui(layout_stack_t* s, synth_state_t* state) {
@@ -399,7 +386,7 @@ void on_draw(void* state) {
 
 	rect_i32 slider_rect = {.w=11,.h=20};
 	slider_rect = rect_i32_align_to_rect(slider_rect, content_rect, GRV_ALIGNMENT_TOP_RIGHT);
-	draw_rect_slider2(slider_rect, "VOL", &synth_state->master_volume);
+	draw_rect_slider(slider_rect, "VOL", &synth_state->master_volume);
 
 	draw_synth_gui(layout_stack, synth_state);
 	draw_pattern_triggers(trigger_rect, synth_state);
