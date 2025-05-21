@@ -127,27 +127,29 @@ void grvgm_draw_text_aligned_fx32(rect_fx32 rect, grv_str_t text, grv_alignment_
 }
 
 vec2_i32 grvgm_screen_size(void) {
-	i32 w = _grvgm_framebuffer()->width;
-	i32 h = _grvgm_framebuffer()->height;
+	i32 w = _grvgm_state.options.screen_width;
+	i32 h = _grvgm_state.options.screen_height;
 	return (vec2_i32) {w, h};
 }
 vec2_fx32 grvgm_screen_size_fx32(void) {
-	i32 w = _grvgm_framebuffer()->width;
-	i32 h = _grvgm_framebuffer()->height;
+	i32 w = _grvgm_state.options.screen_width;
+	i32 h = _grvgm_state.options.screen_height;
 	return vec2_fx32_from_i32(w, h);
 }
 
 rect_i32 grvgm_screen_rect(void) {
+	vec2_i32 screen_size = grvgm_screen_size();
 	return (rect_i32) {
-		.w=_grvgm_framebuffer()->width,
-		.h=_grvgm_framebuffer()->height
+		.w=screen_size.x,
+		.h=screen_size.y
 	};
 }
 
 rect_fx32 grvgm_screen_rect_fx32(void) {
+	vec2_fx32 screen_size = grvgm_screen_size_fx32();
 	return (rect_fx32) {
-		.w=fx32_from_i32(_grvgm_framebuffer()->width),
-		.h=fx32_from_i32(_grvgm_framebuffer()->height)
+		.w=screen_size.x,
+		.h=screen_size.y
 	};
 }
 
