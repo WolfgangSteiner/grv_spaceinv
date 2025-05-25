@@ -3,6 +3,7 @@
 
 #include "grvgm.h"
 #include "grv/grv_arena.h"
+#include "grv/grv_ringbuffer.h"
 #include "grv/grv_math.h"
 #include "synth_base.h"
 #include "audio_parameter.h"
@@ -17,6 +18,9 @@
 
 typedef struct {
 	grv_arena_t audio_arena;
+	grv_ringbuffer_t audio_ringbuffer;
+	i16* audio_writebuffer;
+	i64 audio_writebuffer_capacity;
 } synth_transient_state_t;
 
 typedef struct {

@@ -7,6 +7,7 @@
 #include "note_processor.h"
 #include "sequencer.h"
 #include "parameter_mapping.h"
+#include <stdatomic.h>
 
 void process_mono_to_stereo(f32* left, f32* right, f32* in, f32* pan) {
 	for (i32 i = 0; i < AUDIO_FRAME_SIZE; i++) {
@@ -94,5 +95,15 @@ void on_audio(void* state, i16* stream, i32 num_frames) {
 
 		grv_arena_pop_frame(arena);
 	}
+
+	bool is_recording = atomic_load(&synth_state->transport.is_recording);
+	if (is_recording) {
+		i32 bytes_per_frame = sizeof(i16) * 2;
+		grv_ringbuffer_write(
+			&synth_state->transient.audio_ringbuffer,
+			stream,
+			num_frames * bytes_per_frame);
+	}
+
 	grv_arena_reset(arena);
 }

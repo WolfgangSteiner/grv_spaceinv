@@ -303,6 +303,19 @@ void draw_play_button(rect_i32 rect, transport_state_t* state) {
 	}
 }
 
+void draw_record_button(rect_i32 rect, transport_state_t* state) {
+	i32 sprite_idx = state->is_recording ? 51 : 50;
+	rect_i32 sprite_rect = {.w=8,.h=8};
+	sprite_rect = rect_i32_align_to_rect(sprite_rect, rect, GRV_ALIGNMENT_CENTER_LEFT);
+	grvgm_sprite_t spr = {
+		.index = sprite_idx,
+	};
+	grvgm_draw_sprite(rect_i32_pos(sprite_rect), spr);
+	if (grvgm_mouse_click_in_rect(rect, GRVGM_BUTTON_MOUSE_LEFT)) {
+		state->is_recording = !state->is_recording;
+	}
+}
+
 void draw_waveform_button(rect_i32 rect, oscillator_t* osc) {
 	i32 w = 20;
 	rect_i32 button_rect = {.w=w, .h=w};
@@ -358,6 +371,7 @@ void draw_synth_gui(layout_stack_t* s, synth_state_t* state) {
 }
 
 void on_draw(void* state) {
+	i32 gap = 2;
 	synth_state_t* synth_state = state;
 	grvgm_clear_screen(0);
 	layout_stack_t* layout_stack = layout_stack_init(grvgm_screen_rect());
@@ -365,10 +379,10 @@ void on_draw(void* state) {
 	
 	rect_i32 status_bar_rect = layout_stack_vsplit_top(layout_stack, 12, 2);
 	draw_track_buttons(status_bar_rect, synth_state);
-	draw_play_button(
-		rect_i32_align_to_rect((rect_i32){.w=13,.h=12}, status_bar_rect, GRV_ALIGNMENT_HORIZONTAL_CENTER),
-		&synth_state->transport
-	);
+	rect_i32 play_button_rect = rect_i32_align_to_rect((rect_i32){.w=13,.h=10}, status_bar_rect, GRV_ALIGNMENT_HORIZONTAL_CENTER);
+	draw_play_button(play_button_rect, &synth_state->transport);
+	rect_i32 record_button_rect = rect_i32_clone_right(play_button_rect, gap);
+	draw_record_button(record_button_rect, &synth_state->transport);
 	draw_beat_time(&synth_state->transport, status_bar_rect);
 
 	rect_i32 trigger_rect = layout_stack_vsplit_bottom(layout_stack, 7, 1);
