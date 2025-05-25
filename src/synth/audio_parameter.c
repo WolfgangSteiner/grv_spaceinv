@@ -117,10 +117,10 @@ f32 audio_parameter_map_to_slider_value(audio_parameter_t* p) {
 
 f32 audio_parameter_map_to_gui_relative_value(audio_parameter_t* p) {
 	f32 rel_value = p->value;
-	if (p->mapping_type == MAPPING_TYPE_VOLUME) {
-			rel_value = map_normalized_volume_to_gui_cubic(
-				p->value, p->min_value, p->max_value);
-	}
+	// if (p->mapping_type == MAPPING_TYPE_VOLUME) {
+	// 		rel_value = map_normalized_volume_to_gui_cubic(
+	// 			p->value, p->min_value, p->max_value);
+	// }
 	if (audio_parameter_is_bipolar(p)) {
 		// map to -0.5 .. 0.5
 		rel_value -= 0.5f;

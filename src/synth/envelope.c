@@ -41,7 +41,7 @@ void envelope_set_release_time(envelope_t* env, f32 t_s) {
 }
 
 void envelope_set_sustain(envelope_t* env, f32 sustain) {
-	sustain = grv_clamp_f32(sustain, env->sustain.min_value, env->sustain.max_value);
+	sustain = grv_clamp_f32(sustain, 0.0f, 1.0f);
 	env->sustain.value = sustain;
 	envelope_set_decay_time(env, env->decay.value);
 }
@@ -50,7 +50,7 @@ void envelope_init(envelope_t* envelope) {
 	f32 t_attack = 0.01f;
 	f32 t_decay = 0.05f;
 	f32 t_release = 0.2f;
-	f32 sustain = 0.5f;
+	f32 sustain = 0.0f;
 
 	f32 t_min = 0.001f;
 	f32 t_max = 60.0f;
