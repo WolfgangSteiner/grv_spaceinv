@@ -1,4 +1,5 @@
 #include "grv/grv_pseudo_random.h"
+#include "grv/grv_dynarr.h"
 
 //==============================================================================
 // api
@@ -163,6 +164,22 @@ fx32 grvgm_timediff(fx32 timestamp) {
 
 f32 grvgm_time_f32(void) {
 	return _grvgm_game_time_ms() / 1000.0f;
+}
+
+void grvgm_add_timer(
+	void(*callback)(void*),
+	f32 time_interval,
+	bool is_repeating,
+	void* user_data) {
+	grvgm_timer_t timer = {
+		.callback=callback,
+		.is_repeating=is_repeating,
+		.user_data=user_data,
+		.time_interval=time_interval,
+		.prev_time = grvgm_time_f32()
+	};
+
+	GRV_DYNARR_PUSH((&_grvgm_state.timers), timer);
 }
 
 u64 grvgm_ticks(void) {

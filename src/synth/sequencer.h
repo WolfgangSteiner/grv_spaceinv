@@ -4,12 +4,15 @@
 #include "synth_base.h"
 #include "transport.h"
 #include "grv/grv_arena.h"
+#include "grv/grv_serialize.h"
+
+#define SYNTH_PATTERH_VERSION 0
 
 typedef struct {
 	bool activated;
 	i32 note_value;
 	i32 length; // [ppqn]
-	f32 amplitude;
+	f32 velocity;
 } synth_pattern_step_t;
 
 typedef struct {
@@ -38,5 +41,7 @@ note_event_t* sequencer_process(
 	grv_arena_t* arena);
 
 void pattern_init(synth_pattern_t* pattern);
+
+void synth_pattern_serialize(synth_pattern_t* pattern, grv_serializer_t* s);
 
 #endif

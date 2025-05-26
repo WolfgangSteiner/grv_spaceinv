@@ -28,4 +28,6 @@ void simple_synth_process(
 	note_event_t* note_event,
 	grv_arena_t* arena);
 
+bool simple_synth_serialize(grv_serializer_t* s, simple_synth_t* synth);
+
 #endif

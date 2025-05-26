@@ -142,6 +142,12 @@ rect_i32 grvgm_screen_rect(void);
 fx32 grvgm_time(void);
 f32 grvgm_time_f32(void);
 
+void grvgm_add_timer(
+	void(*callback)(void*),
+	f32 time_inverval,
+	bool is_repeating,
+	void* user_data);
+
 // compute time difference between a timestamp and the current time
 fx32 grvgm_timediff(fx32 timestamp);
 

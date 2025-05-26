@@ -24,6 +24,7 @@
 				pkgs.zstd
 				pkgs.bear
 				pkgs.ccls
+				pkgs.valgrind
 			];
 
 			shellHook = ''

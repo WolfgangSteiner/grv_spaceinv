@@ -41,3 +41,19 @@ void synth_track_init(synth_track_t* track) {
 	simple_synth_init(&track->synth);
 }
 
+void synth_track_serialize(grv_serializer_t* s, synth_track_t* track) {
+	grv_serialize_struct_begin(s, 0);
+
+	grv_serialize_struct_field(s, "synth");
+	simple_synth_serialize(s, &track->synth);
+
+	grv_serialize_struct_field(s, "volume");
+	audio_parameter_serialize(s, &track->output.volume);
+
+	grv_serialize_struct_field(s, "pan");
+	audio_parameter_serialize(s, &track->output.pan);
+
+	grv_serialize_struct_end(s);
+}
+
+

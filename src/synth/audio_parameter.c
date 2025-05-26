@@ -3,6 +3,7 @@
 #include "dsp.h"
 #include "parameter_mapping.h"
 #include "libc/snprintf.h"
+#include "grv/grv_log.h"
 
 f32* audio_parameter_smooth(audio_parameter_t* p, grv_arena_t* arena) {
 	f32* outptr = audio_buffer_alloc(arena);
@@ -131,4 +132,19 @@ f32 audio_parameter_map_to_gui_relative_value(audio_parameter_t* p) {
 
 bool audio_parameter_is_bipolar(audio_parameter_t* p) {
 	return p->min_value < 0.0f && p->min_value == -p->max_value;
+}
+
+void audio_parameter_serialize(grv_serializer_t* s, audio_parameter_t* p) {
+	grv_serialize_struct_begin(s, 0);
+	grv_serialize_struct_field_float(s, "value", p->value);
+	grv_serialize_struct_end(s);
+}
+
+bool audio_parameter_deserialize(grv_serializer_t* s, audio_parameter_t* p) {
+	u16 version;
+	bool success = grv_deserialize_struct_begin(s, version);
+	if (success == false || version != 0) {
+		grv_log_error_cstr("audio_parameter_t failed deserialization");
+		return false;
+	}
 }

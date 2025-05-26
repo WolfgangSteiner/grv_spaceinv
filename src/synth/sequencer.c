@@ -33,7 +33,7 @@ note_event_t* sequencer_process(
 				.type = NOTE_EVENT_ON,
 				.note_value = pattern_step->note_value,
 				.length = pattern_step->length,
-				.amplitude = pattern_step->amplitude,
+				.velocity = pattern_step->velocity,
 			};
 			sequencer_track_state->note_ticks = pattern_step->length;
 		} else if (sequencer_track_state->note_ticks) {
@@ -59,7 +59,48 @@ void pattern_init(synth_pattern_t* pattern) {
 		*step = (synth_pattern_step_t){
 			.note_value = 45, // 440Hz
 			.length = PPQN / 4,
-			.amplitude = 1.0f,
+			.velocity = 1.0f,
 		};
 	}
+}
+
+void synth_pattern_step_serialize(synth_pattern_step_t* step, grv_serializer_t* s) {
+	grv_serialize_struct_begin(s);
+	grv_serialize_struct_field_bool(s, "activated", step->activated);
+	grv_serialize_struct_field_int(s, "note_value", step->note_value);
+	grv_serialize_struct_field_int(s, "length", step->length);
+	grv_serialize_struct_field_float(s, "velocity", step->velocity);
+	grv_serialize_struct_end(s);
+}
+
+void synth_pattern_serialize(synth_pattern_t* pattern, grv_serializer_t* s) {
+	grv_serialize_struct_begin(s);
+	grv_serialize_struct_field(s, "steps");
+	grv_serialize_array_begin(s, pattern->num_steps);
+	for (i32 i = 0; i < pattern->num_steps; i++) {
+		synth_pattern_step_t* step = &pattern->steps[i];
+		synth_pattern_step_serialize(step, s);
+	}
+	grv_serialize_struct_end(s);
+}
+
+#include "grv/grv_cstr.h"
+
+bool synth_pattern_deserialize(synth_pattern_t* pattern, grv_serializer_t* s) {
+	bool success = false;
+	u32 version;
+	success = grv_deserialize_struct_begin(s, &version);
+
+	while (true) {
+		char* field_name;
+		success = grv_deserialize_struct_field_next(s, &field_name);
+		if (success == false) return false;
+		if (field_name == NULL) break;
+		else if (grv_cstr_eq(field_name, ))
+	}
+
+	success = grv_deserialize_struct_end(s);
+
+end:
+	return success;
 }

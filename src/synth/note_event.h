@@ -11,7 +11,7 @@ typedef enum {
 
 typedef struct {
 	note_event_type_t type;
-	f32 amplitude; 
+	f32 velocity; 
 	i32 note_value;
 	i32 length;
 } note_event_t;

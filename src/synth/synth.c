@@ -2,6 +2,7 @@
 #include "grv/grv_math.h"
 #include "synth.h"
 #include <stdio.h>
+#include "grv/grv_log.h"
 
 #include "audio_parameter.c"
 #include "synth_audio.c"
@@ -20,6 +21,16 @@ grv_arena_t* get_arena(synth_state_t* state) {
 	return &state->transient.audio_arena;
 }
 
+void auto_save_callback(void* user_data) {
+	GRV_UNUSED(user_data);
+	grv_log_info(grv_str_ref("Auto saving"));
+	grv_serializer_t s = {0};
+	synth_state_t* state = user_data;
+	synth_state_serialize(&s, state);
+	grv_serializer_write(&s, "auto_save.dat");
+	grv_serializer_free(&s);
+}
+
 void on_init(void** game_state, size_t* size) {
 	grvgm_set_screen_size(256, 256);
 	grvgm_set_sprite_size(16);
@@ -34,6 +45,9 @@ void on_init(void** game_state, size_t* size) {
 	}
 	*game_state = synth_state;
 	*size = sizeof(synth_state_t) - sizeof(synth_transient_state_t);
+
+	grvgm_add_timer(auto_save_callback, 1.0f, true, synth_state);
+
 }
 
 u32 make_id_u32(char* id) {
@@ -138,3 +152,33 @@ void on_update(void* game_state, float delta_time) {
 	transport->_was_recording = is_recording;
 }
 
+void synth_state_serialize(grv_serializer_t* s, synth_state_t* state) {
+	grv_serialize_struct_begin(s);
+
+	grv_serialize_struct_field(s, "patterns");
+	grv_serialize_array_begin(s, state->patterns.size);
+	for (i32 i = 0; i < state->patterns.size; i++) {
+		synth_pattern_t* pattern = &state->patterns.arr[i];
+		synth_pattern_serialize(pattern, s);
+	}
+	grv_serialize_array_end(s);
+
+	grv_serialize_struct_field(s, "tracks");
+	grv_serialize_array_begin(s, state->tracks.size);
+	// serialize all tracks;
+	grv_serialize_array_end(s);
+
+	grv_serialize_struct_field(s, "selected_track");
+	grv_serialize_int(s, state->selected_track);
+
+	grv_serialize_struct_field(s, "current_pattern");
+	grv_serialize_int(s, state->current_pattern);
+
+	// grv_serialize_struct_field(s, "sample_rate");
+	// grv_serialize_int(s, state->sample_rate);
+
+	grv_serialize_struct_field(s, "master_volume");
+	audio_parameter_serialize(&state->master_volume, s);
+
+	grv_serialize_struct_end(s);
+}

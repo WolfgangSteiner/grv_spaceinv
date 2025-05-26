@@ -76,6 +76,14 @@ typedef struct {
 } grvgm_mouse_event_receiver_queue_t;
 
 typedef struct {
+	void(*callback)(void*);
+	void* user_data;
+	f32 time_interval;
+	f32 prev_time;
+	bool is_repeating;
+} grvgm_timer_t;
+
+typedef struct {
 	grvgm_dylib_t dylib;
 	grv_window_t* window;
 	grv_framebuffer_t* framebuffer;
@@ -108,6 +116,12 @@ typedef struct {
 		grvgm_callback_t* root;
 		grvgm_callback_t* head;
 	} end_of_frame_callback_queue;
+
+	struct {
+		grvgm_timer_t* arr;
+		i32 capacity;
+		i32 size;
+	} timers;
 
 	grvgm_mouse_event_receiver_queue_t mouse_event_receiver_queue;
 	u64 mouse_event_receiver;
@@ -701,6 +715,14 @@ void _grvgm_on_update(f32 dt) {
 	if (_grvgm_state.dylib.on_update) {
 		_grvgm_state.dylib.on_update(_grvgm_state.game_state, dt);
 		_grvgm_game_state_push();
+	}
+	f32 current_time = grvgm_time_f32();
+	for (i32 i = 0; i < _grvgm_state.timers.size; i++) {
+		grvgm_timer_t* timer = &_grvgm_state.timers.arr[i];
+		if (current_time - timer->prev_time >= timer->time_interval) {
+			timer->callback(timer->user_data);
+			timer->prev_time = current_time;
+		}
 	}
 }
 

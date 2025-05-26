@@ -21,6 +21,9 @@ typedef struct {
 } synth_track_t;
 
 void synth_track_init(synth_track_t* track);
+
+bool synth_track_serialize(grv_serializer_t* s, synth_track_t* track);
+
 void track_process(
 	f32* out_l,
 	f32* out_r,

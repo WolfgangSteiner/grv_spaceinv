@@ -15,6 +15,9 @@
 #include "simple_synth.h"
 #include "sequencer.h"
 #include "synth_track.h"
+#include "grv/grv_serialize.h"
+
+#define SYNTH_STATE_VERSION 1
 
 typedef struct {
 	grv_arena_t audio_arena;
@@ -34,11 +37,13 @@ typedef struct {
 	i32 sample_rate;
 	i64 sample_time;
 	transport_state_t transport;
-	synth_transient_state_t transient;
 	audio_parameter_t master_volume;
+	synth_transient_state_t transient;
 } synth_state_t;
 
 void synth_state_init(synth_state_t* state);
 grv_arena_t* get_arena(synth_state_t* state);
+void synth_state_serialize(grv_serializer_t* s, synth_state_t* state);
+void synth_state_deserialize();
 
 #endif

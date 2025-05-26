@@ -3,6 +3,9 @@
 
 #include "grv/grv_base.h"
 #include "grv/grv_arena.h"
+#include "grv/grv_serialize.h"
+
+#define AUDIO_PARAMETER_VERSION 1
 
 typedef enum {
 	MAPPING_TYPE_LINEAR,
@@ -37,4 +40,7 @@ f32 audio_parameter_map_to_physical_value(audio_parameter_t* p);
 char* audio_parameter_value_as_string(audio_parameter_t* p, grv_arena_t* arena);
 bool audio_parameter_is_bipolar(audio_parameter_t* p);
 f32 audio_parameter_map_to_gui_relative_value(audio_parameter_t* p);
+
+void audio_parameter_serialize(grv_serializer_t* s, audio_parameter_t* p);
+
 #endif
