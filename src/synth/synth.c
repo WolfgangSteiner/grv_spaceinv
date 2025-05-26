@@ -30,11 +30,7 @@ void on_init(void** game_state, size_t* size) {
 		grv_arena_init(&synth_state->transient.audio_arena, 1*GRV_MEGABYTES);
 	}
 	if (synth_state->transient.audio_ringbuffer.data == NULL) {
-		grv_ringbuffer_init(&synth_state->transient.audio_ringbuffer, 1*GRV_MEGABYTES);
-	}
-	if (synth_state->transient.audio_writebuffer == NULL) {
-		synth_state->transient.audio_writebuffer_capacity = 1*GRV_MEGABYTES;
-		synth_state->transient.audio_writebuffer = grv_alloc(1*GRV_MEGABYTES);
+		grv_ringbuffer_init(&synth_state->transient.audio_ringbuffer, 1<<16);
 	}
 	*game_state = synth_state;
 	*size = sizeof(synth_state_t) - sizeof(synth_transient_state_t);
@@ -84,12 +80,7 @@ void wav_header_init(wav_header_t* header, i32 num_channels, i32 sample_rate) {
 FILE* recording_file = NULL;
 
 void write_recording_buffer(synth_state_t* state) {
-	i64 bytes_read = grv_ringbuffer_read(
-		&state->transient.audio_ringbuffer,
-		state->transient.audio_writebuffer,
-		state->transient.audio_writebuffer_capacity
-	);
-	fwrite(state->transient.audio_writebuffer, 1, bytes_read, recording_file);
+	grv_ringbuffer_read_to_file(&state->transient.audio_ringbuffer, recording_file);
 }
 
 bool start_recording(synth_state_t* state) {

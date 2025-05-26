@@ -19,8 +19,6 @@
 typedef struct {
 	grv_arena_t audio_arena;
 	grv_ringbuffer_t audio_ringbuffer;
-	i16* audio_writebuffer;
-	i64 audio_writebuffer_capacity;
 } synth_transient_state_t;
 
 typedef struct {
